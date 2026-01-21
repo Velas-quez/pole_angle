@@ -1,0 +1,7 @@
+raw_data/*
+sparse_data/*
+processed_data/*
+*.parquet
+*.pyc
+*.bag
+__pycache__/
