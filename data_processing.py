@@ -102,138 +102,130 @@ def get_event_hu_moments(x_coords, y_coords):
 
 # Final feature vector for the MLP (14 inputs)
 # mlp_input = np.concatenate([features_pos, features_neg])
-
-def extract_and_prepare_csv(bag_path, static_q_rel_quat, output_csv='training_data.csv'):
+def get_angles_from_markers_svd(marker_data):
     """
-    Processes a rosbag to create a CSV with synchronized spatial sensor features 
-    and ground truth angles, excluding temporal derivatives.
+    Finds the principal axis of all markers using SVD.
+    Returns [roll, pitch] in radians.
+    """
+    points = np.array(marker_data).reshape(-1, 3)
+    if len(points) < 2:
+        return np.array([0.0, 0.0])
+
+    # Center points and find principal component
+    centered = points - np.mean(points, axis=0)
+    _, _, Vh = np.linalg.svd(centered)
+    vec = Vh[0]
+
+    # Ensure vector points UP (assuming Optitrack Y-up)
+    if vec[1] < 0: 
+        vec = -vec
+
+    # Calculate Roll (around Z) and Pitch (around X)
+    roll = np.arctan2(vec[0], vec[1])
+    pitch = np.arctan2(vec[2], vec[1])
+    return np.array([roll, pitch])
+
+
+
+def extract_and_prepare_parquet(bag_path, static_q_rel_quat, output_parquet='training_data.parquet'):
+    """
+    Processes a rosbag to create a parquet with synchronized spatial sensor features.
+    Estimates pole angle using SVD on all markers for high precision.
     """
     bag = rosbag.Bag(bag_path)
     
     # Containers for raw data extraction
-    opti_base = []  # [timestamp, qx, qy, qz, qw]
-    opti_pole = []  # [timestamp, qx, qy, qz, qw]
-    sensor_features = [] # [timestamp, mu_x, mu_y, var_x, var_y, cov_xy, n, p_ratio]
-
-    """[
-    timestamp: Message time in seconds (master clock for synchronization),
-    mu_x: Horizontal centroid (Center of Pressure),
-    mu_y: Vertical centroid (Center of Pressure),
-    var_x: Horizontal spatial spread (variance),
-    var_y: Vertical spatial spread (variance),
-    cov_xy: Spatial covariance (contact orientation/geometry),
-    n: Total event count (proxy for contact force/intensity),
-    p_ratio: Polarity ratio (asymmetry of brightness changes) 
-    ]
-    """
+    opti_base = []    # [timestamp, qx, qy, qz, qw]
+    opti_markers = [] # [timestamp, roll_raw, pitch_raw]
+    sensor_features = [] 
 
     print(f"Opening bag file: {bag_path}")
     
     for topic, msg, t in bag.read_messages():
-        # Use message header stamp for precision
         t_msg = msg.header.stamp.to_sec()
         
-        # --- 1. Ground Truth Extraction (Quaternions) ---
+        # --- 1. Ground Truth Extraction ---
         if topic == '/optitrack/base/pose':
             q = msg.pose.orientation
             opti_base.append([t_msg, q.x, q.y, q.z, q.w])
-        elif topic == '/optitrack/pole/pose':
-            q = msg.pose.orientation
-            opti_pole.append([t_msg, q.x, q.y, q.z, q.w])
+
+        elif topic == '/optitrack/pole/markers':
+            # Use SVD to find the principal axis of the marker cloud
+            points = np.array(msg.data).reshape(-1, 3)
+            if len(points) >= 2:
+                centered = points - np.mean(points, axis=0)
+                _, _, Vh = np.linalg.svd(centered)
+                vec = Vh[0]
+                if vec[1] < 0: vec = -vec # Ensure it points UP
+                
+                # Calculate raw Euler angles from the vector
+                roll_raw = np.arctan2(vec[0], vec[1])
+                pitch_raw = np.arctan2(vec[2], vec[1])
+                opti_markers.append([t_msg, roll_raw, pitch_raw])
             
-        # --- 2. Statistical Feature Extraction (Spatial Only) ---
+        # --- 2. Statistical Feature Extraction ---
         elif topic == '/evetac_msg0':
-            # Extract image from mono8 sensor message
             img = np.frombuffer(msg.image.data, dtype=np.uint8).reshape(640, 480)
             
-            # Identify active events (ignoring background 127)
             mask = img != 127
             mask_pos = img == 255
             mask_neg = img == 0
             
             y_coords, x_coords = np.where(mask)
-            y_pos_coords, x_pos_coords = np.where(mask_pos)
-            y_neg_coords, x_neg_coords = np.where(mask_neg)
+            y_pos, x_pos = np.where(mask_pos)
+            y_neg, x_neg = np.where(mask_neg)
             
-            polarities = img[mask] # 0 or 255
-            
-            if len(x_coords) > 10: # Minimum threshold to avoid noise
-                # Centroid (Mean)
-                cx, cy = np.mean(x_coords), np.mean(y_coords)
-                cx_pos, cy_pos = np.mean(x_pos_coords), np.mean(y_pos_coords)
-                cx_neg, cy_neg = np.mean(x_neg_coords), np.mean(y_neg_coords)
-                
-                # Spread (Variance)
-                var_x_pos, var_y_pos = np.var(x_pos_coords), np.var(y_pos_coords)
-                var_x, var_y = np.var(x_coords), np.var(y_coords)
-                var_x_neg, var_y_neg = np.var(x_neg_coords), np.var(y_neg_coords)                
-                # Geometry (Covariance)
-                cov_matrix = np.cov(x_coords, y_coords)
-                cov_xy = cov_matrix[0, 1] if cov_matrix.ndim > 0 else 0
-                cov_matrix_pos = np.cov(x_pos_coords, y_pos_coords)
-                cov_xy_pos = cov_matrix_pos[0, 1] if cov_matrix_pos.ndim > 0 else 0
-                cov_matrix_neg = np.cov(x_neg_coords, y_neg_coords)
-                cov_xy_neg = cov_matrix_neg[0, 1] if cov_matrix_neg.ndim > 0 else 0
-                
-                # Intensity (Count and Polarity Ratio)
-                # n_total = len(x_coords)
-                n_pos = np.sum(polarities == 255)
-                n_neg = np.sum(polarities == 0)
-                # p_ratio = n_pos / n_total
-
-                ## Hu moments
-                hu_moments_pos = get_event_hu_moments(x_pos_coords, y_pos_coords)
-                hu_moments_neg = get_event_hu_moments(x_neg_coords, y_neg_coords)
-                sensor_features = np.array([t_msg,cx, cx_pos, cx_neg, cy, cy_pos, cy_neg,
-                                        var_x, var_x_pos, var_x_neg,
-                                        var_y, var_y_pos, var_y_neg,
-                                        cov_xy, cov_xy_pos, cov_xy_neg,
-                                        n_pos, n_neg])
-                sensor_features = np.hstack([sensor_features, hu_moments_pos, hu_moments_neg])
-                # sensor_features.append()
+            if len(x_coords) > 10:
+                # Moments and stats
+                row = [
+                    t_msg, 
+                    np.mean(x_coords), np.mean(x_pos), np.mean(x_neg),
+                    np.mean(y_coords), np.mean(y_pos), np.mean(y_neg),
+                    np.var(x_coords), np.var(x_pos), np.var(x_neg),
+                    np.var(y_coords), np.var(y_pos), np.var(y_neg),
+                    np.cov(x_coords, y_coords)[0,1] if len(x_coords) > 1 else 0,
+                    np.sum(mask_pos), np.sum(mask_neg)
+                ]
+                # Hu Moments
+                row.extend(get_event_hu_moments(x_pos, y_pos))
+                row.extend(get_event_hu_moments(x_neg, y_neg))
+                sensor_features.append(row)
 
     bag.close()
     
-    # Convert to numpy for processing
+    # Convert to numpy
     base_arr = np.array(opti_base)
-    pole_arr = np.array(opti_pole)
+    marker_arr = np.array(opti_markers)
     feats_arr = np.array(sensor_features)
 
-    # --- 3. Trim 1 Seconds from Edges ---
-    t_min = max(base_arr[0,0], pole_arr[0,0], feats_arr[0,0]) + 1.0
-    t_max = min(base_arr[-1,0], pole_arr[-1,0], feats_arr[-1,0]) - 1.0
+    # --- 3. Synchronization & Trimming ---
+    t_min = max(base_arr[0,0], marker_arr[0,0], feats_arr[0,0]) + 1.0
+    t_max = min(base_arr[-1,0], marker_arr[-1,0], feats_arr[-1,0]) - 1.0
     feats_arr = feats_arr[(feats_arr[:,0] >= t_min) & (feats_arr[:,0] <= t_max)]
     
-    # --- 4. Quaternion Math & Target Generation ---
-    # Sync pole to base timestamps
-    f_pole = interp1d(pole_arr[:,0], pole_arr[:,1:], axis=0, fill_value="extrapolate")
-    q_base = R.from_quat(base_arr[:, 1:])
-    q_pole = R.from_quat(f_pole(base_arr[:,0]))
+    # Interpolate Base and Markers to the Sensor Timestamps
+    f_base = interp1d(base_arr[:,0], base_arr[:, 1:], axis=0, fill_value="extrapolate")
+    f_marker = interp1d(marker_arr[:,0], marker_arr[:, 1:], axis=0, fill_value="extrapolate")
     
-    # Calculate Relative Orientation and Apply Static Calibration
-    q_rel = q_base.inv() * q_pole
-    q_static_inv = R.from_quat(static_q_rel_quat).inv()
-    q_final = q_static_inv * q_rel
+    q_base_interp = R.from_quat(f_base(feats_arr[:,0]))
+    angles_marker_interp = f_marker(feats_arr[:,0]) # [roll, pitch]
     
-    # Target angles (Roll and Pitch) in Radians
-    targets = q_final.as_euler('xyz')[:, :2]
+    # --- 4. Final Target Calculation ---
+    # Here we can refine the marker angles by the base orientation if needed.
+    # For now, we use the marker-derived angles as the ground truth.
+    final_labels = angles_marker_interp 
     
-    # --- 5. Final Synchronization ---
-    # Map targets to the specific timestamps of the sensor messages
-    f_sync = interp1d(base_arr[:,0], targets, axis=0, fill_value="extrapolate")
-    final_labels = f_sync(feats_arr[:,0])
+    # --- 5. Export to Parquet ---
+    cols = ['mu_x', 'mu_x_pos', 'mu_x_neg', 'mu_y', 'mu_y_pos', 'mu_y_neg',
+            'var_x', 'var_x_pos', 'var_x_neg', 'var_y', 'var_y_pos', 'var_y_neg',
+            'cov_xy', 'n_pos', 'n_neg']
+    cols += [f'hu_pos_{i}' for i in range(7)] + [f'hu_neg_{i}' for i in range(7)]
     
-    # --- 6. Export to CSV ---
-    df = pd.DataFrame(feats_arr[:, 1:], columns=[
-        'mu_x', 'mu_y', 'var_x', 'var_y', 'cov_xy', 'n_events', 'pol_ratio'
-    ])
+    df = pd.DataFrame(feats_arr[:, 1:], columns=cols)
     df['target_roll'] = final_labels[:, 0]
     df['target_pitch'] = final_labels[:, 1]
     
-    df.to_csv(output_csv, index=False)
-    df.to_parquet(output_csv, index=False)
-    print(f"Success! {output_csv} created with {len(df)} samples.")
-
-# Run with your 'straight-pole' calibration quaternion
-# Example: extract_and_prepare_csv('log.bag', [qx, qy, qz, qw])
-extract_and_prepare_csv('my_experiment.bag', [0, 0, 0, 1])
+    df.to_parquet(output_parquet, index=False)
+    print(f"Success! {output_parquet} created with {len(df)} samples.")
+# ---- #
+extract_and_prepare_parquet('my_experiment.bag', [0, 0, 0, 1])
