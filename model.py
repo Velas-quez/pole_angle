@@ -37,7 +37,7 @@ class TactileDataset(Dataset):
         return self.features[idx], self.targets[idx]
 
 # --- 3. Data Preparation Function ---
-def prepare_data(parquet_path, batch_size=64):
+def prepare_data(parquet_path, batch_size=128):
     # Load data (works for parquet or csv)
     df = pd.read_parquet(parquet_path)
     
@@ -97,7 +97,7 @@ def train_model(model, train_loader, val_loader, epochs=200):
 if __name__ == "__main__":
    
 
-    filename = 'training_data.parquet' 
+    filename = 'final_training_data.parquet' 
     train_ld, val_ld, test_ld, input_dim, scaler = prepare_data(filename)
     
     model = TactileMLP(input_size=input_dim)
@@ -105,6 +105,8 @@ if __name__ == "__main__":
     
     # --- 1. Train ---
     train_model(model, train_ld, val_ld, epochs=100)
+    print("Dataset shapes:")
+    print(f"Train: {len(train_ld.dataset)}, Val: {len(val_ld.dataset)}, Test: {len(test_ld.dataset)}")
     
     # --- 2. Test (Final Evaluation) ---
     model.eval()
@@ -117,6 +119,7 @@ if __name__ == "__main__":
             
             # MSE in degrees^2
             loss = nn.MSELoss()(outputs, targets)
+            print("Loss:", loss.item())
             test_mse += loss.item()
             
             # Mean Absolute Error directly in degrees
