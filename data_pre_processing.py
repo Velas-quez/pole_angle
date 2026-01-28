@@ -188,9 +188,35 @@ def _collect_markers_rows(
         bag.close()
 
 
-def _write_optitrack_parquet(rows: List[Dict], output_path: str) -> str:
+def _write_or_append_parquet(rows: List[Dict], output_path: str, schema=None) -> str:
+    """
+    Writes rows to a parquet file, appending to it if it already exists.
+    Uses pyarrow when available; falls back to pandas otherwise.
+    """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    if not rows:
+        return output_path
 
+    if pq is not None and pa is not None:
+        table = pa.Table.from_pylist(rows, schema=schema)
+        if os.path.exists(output_path):
+            existing = pq.read_table(output_path)
+            table = pa.concat_tables([existing, table], promote=True)
+        pq.write_table(table, output_path)
+    elif pd is not None:
+        df_new = pd.DataFrame(rows)
+        if os.path.exists(output_path):
+            df_existing = pd.read_parquet(output_path)
+            df_new = pd.concat([df_existing, df_new], ignore_index=True)
+        df_new.to_parquet(output_path, index=False)
+    else:  # pragma: no cover - extremely unlikely given requirements.txt
+        raise RuntimeError("Neither pyarrow nor pandas is available to write parquet files.")
+
+    return output_path
+
+
+def _write_optitrack_parquet(rows: List[Dict], output_path: str) -> str:
+    schema = None
     if pq is not None and pa is not None:
         schema = pa.schema(
             [
@@ -228,19 +254,12 @@ def _write_optitrack_parquet(rows: List[Dict], output_path: str) -> str:
                 ),
             ]
         )
-        table = pa.Table.from_pylist(rows, schema=schema)
-        pq.write_table(table, output_path)
-    elif pd is not None:
-        pd.DataFrame(rows).to_parquet(output_path, index=False)
-    else:  # pragma: no cover - extremely unlikely given requirements.txt
-        raise RuntimeError("Neither pyarrow nor pandas is available to write parquet files.")
 
-    return output_path
+    return _write_or_append_parquet(rows, output_path, schema)
 
 
 def _write_markers_parquet(rows: List[Dict], output_path: str) -> str:
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
+    schema = None
     if pq is not None and pa is not None:
         schema = pa.schema(
             [
@@ -248,19 +267,12 @@ def _write_markers_parquet(rows: List[Dict], output_path: str) -> str:
                 ("markers", pa.list_(pa.float64())),
             ]
         )
-        table = pa.Table.from_pylist(rows, schema=schema)
-        pq.write_table(table, output_path)
-    elif pd is not None:
-        pd.DataFrame(rows).to_parquet(output_path, index=False)
-    else:  # pragma: no cover - extremely unlikely given requirements.txt
-        raise RuntimeError("Neither pyarrow nor pandas is available to write parquet files.")
 
-    return output_path
+    return _write_or_append_parquet(rows, output_path, schema)
 
 
 def _write_evtac_parquet(rows: List[Dict], output_path: str) -> str:
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
+    schema = None
     if pq is not None and pa is not None:
         schema = pa.schema(
             [
@@ -272,14 +284,8 @@ def _write_evtac_parquet(rows: List[Dict], output_path: str) -> str:
                 ("nnz", pa.int32()),
             ]
         )
-        table = pa.Table.from_pylist(rows, schema=schema)
-        pq.write_table(table, output_path)
-    elif pd is not None:
-        pd.DataFrame(rows).to_parquet(output_path, index=False)
-    else:  # pragma: no cover - extremely unlikely given requirements.txt
-        raise RuntimeError("Neither pyarrow nor pandas is available to write parquet files.")
 
-    return output_path
+    return _write_or_append_parquet(rows, output_path, schema)
 
 
 def preprocess_data(
@@ -289,12 +295,15 @@ def preprocess_data(
     background_value: int = 127,
     fallback_height: Optional[int] = None,
     fallback_width: Optional[int] = None,
+    use_base_name: bool = True,
 ) -> Dict[str, str]:
     """
     Reads a rosbag and writes parquet outputs for each group of topics.
 
-    Current implementation: writes Optitrack pose/euler merged parquet, raw markers parquet,
-    and evtac sparse parquet (same logic as data_sparsing).
+    When use_base_name is False, writes/append to shared files:
+    - optitrack.parquet
+    - markers.parquet
+    - evtac.parquet
     """
     base_name = os.path.splitext(os.path.basename(bag_path))[0]
     optitrack_rows = list(_collect_optitrack_rows(bag_path, OPTITRACK_TOPICS, max_messages))
@@ -312,19 +321,22 @@ def preprocess_data(
 
     outputs: Dict[str, str] = {}
     if optitrack_rows:
-        opti_path = os.path.join(output_dir, f"{base_name}_optitrack.parquet")
+        filename = f"{base_name}_optitrack.parquet" if use_base_name else "optitrack.parquet"
+        opti_path = os.path.join(output_dir, filename)
         outputs["optitrack"] = _write_optitrack_parquet(optitrack_rows, opti_path)
     else:
         outputs["optitrack"] = ""
 
     if markers_rows:
-        markers_path = os.path.join(output_dir, f"{base_name}_markers.parquet")
+        filename = f"{base_name}_markers.parquet" if use_base_name else "markers.parquet"
+        markers_path = os.path.join(output_dir, filename)
         outputs["markers"] = _write_markers_parquet(markers_rows, markers_path)
     else:
         outputs["markers"] = ""
 
     if evtac_rows:
-        evtac_path = os.path.join(output_dir, f"{base_name}_evtac.parquet")
+        filename = f"{base_name}_evtac.parquet" if use_base_name else "evtac.parquet"
+        evtac_path = os.path.join(output_dir, filename)
         outputs["evtac"] = _write_evtac_parquet(evtac_rows, evtac_path)
     else:
         outputs["evtac"] = ""
@@ -332,9 +344,52 @@ def preprocess_data(
     return outputs
 
 
-if __name__ == "__main__":
+def preprocess_directory(
+    raw_data_dir: str = "raw_data",
+    output_dir: str = "processed_data",
+    max_messages: Optional[int] = None,
+    background_value: int = 127,
+    fallback_height: Optional[int] = None,
+    fallback_width: Optional[int] = None,
+) -> Dict[str, str]:
+    """
+    Processes every .bag in raw_data_dir and appends each dataset (optitrack, markers, evtac)
+    into three aggregated parquet files stored under output_dir.
+    """
+    bag_files = sorted(
+        os.path.join(raw_data_dir, f)
+        for f in os.listdir(raw_data_dir)
+        if f.endswith(".bag")
+    )
 
-    result_paths = preprocess_data(bag_path="raw_data/pole_balancing_data_2026-01-13-12-26-19.bag", output_dir="preprocessed_data", max_messages=None)
+    results: Dict[str, str] = {"optitrack": "", "markers": "", "evtac": ""}
+    if not bag_files:
+        return results
+
+    for bag_path in bag_files:
+        bag_outputs = preprocess_data(
+            bag_path,
+            output_dir=output_dir,
+            max_messages=max_messages,
+            background_value=background_value,
+            fallback_height=fallback_height,
+            fallback_width=fallback_width,
+            use_base_name=False,
+        )
+        for key in results.keys():
+            if bag_outputs.get(key):
+                results[key] = bag_outputs[key]
+
+    return results
+
+
+if __name__ == "__main__":
+    result_paths = preprocess_directory(
+        raw_data_dir="raw_data",
+        output_dir="preprocessed_data",
+        max_messages=None,
+    )
+
     for kind, path in result_paths.items():
         if path:
             print(f"Wrote {kind} parquet: {path}")
