@@ -14,15 +14,19 @@ else
   set shortmess=aoO
 endif
 badd +1 data_processing_v2.py
+badd +1 model.py
 argglobal
 %argdel
-edit data_processing_v2.py
+edit model.py
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
 wincmd _ | wincmd |
 vsplit
-1wincmd h
+wincmd _ | wincmd |
+vsplit
+2wincmd h
+wincmd w
 wincmd w
 let &splitbelow = s:save_splitbelow
 let &splitright = s:save_splitright
@@ -71,7 +75,6 @@ setlocal expandtab
 if &filetype != 'NvimTree'
 setlocal filetype=NvimTree
 endif
-setlocal fillchars=eob:\ ,fold:\ ,foldopen:,foldsep:\ ,foldclose:
 setlocal fixendofline
 setlocal foldcolumn=0
 setlocal nofoldenable
@@ -124,6 +127,7 @@ setlocal spellfile=
 setlocal spelllang=en
 setlocal spelloptions=
 setlocal statuscolumn=%{%v:lua.require('statuscol').get_statuscol_string()%}
+setlocal statusline=%!v:lua.require('nvchad.stl.default')()
 setlocal suffixesadd=
 setlocal noswapfile
 setlocal synmaxcol=3000
@@ -146,6 +150,148 @@ setlocal wrapmargin=0
 lcd ~/Documents/TUD/pole_angle
 wincmd w
 argglobal
+balt ~/Documents/TUD/pole_angle/data_processing_v2.py
+setlocal keymap=
+setlocal noarabic
+setlocal autoindent
+setlocal nobinary
+setlocal nobreakindent
+setlocal breakindentopt=
+setlocal bufhidden=
+setlocal buflisted
+setlocal buftype=
+setlocal nocindent
+setlocal cinkeys=0{,0},0),0],:,!^F,o,O,e
+setlocal cinoptions=
+setlocal cinscopedecls=public,protected,private
+setlocal cinwords=if,else,while,do,for,switch
+setlocal colorcolumn=
+setlocal comments=b:#,fb:-
+setlocal commentstring=#\ %s
+setlocal complete=.,w,b,u,t
+setlocal completefunc=
+setlocal completeslash=
+setlocal concealcursor=
+setlocal conceallevel=0
+setlocal nocopyindent
+setlocal nocursorbind
+setlocal nocursorcolumn
+setlocal cursorline
+setlocal cursorlineopt=number
+setlocal define=^\\s*\\(\\(async\\s\\+\\)\\?def\\|class\\)
+setlocal nodiff
+setlocal eventignorewin=
+setlocal expandtab
+if &filetype != 'python'
+setlocal filetype=python
+endif
+setlocal fillchars=eob:\ ,fold:\ ,foldclose:,foldopen:,foldsep:\ 
+setlocal fixendofline
+setlocal foldcolumn=1
+setlocal foldenable
+setlocal foldexpr=0
+setlocal foldignore=#
+setlocal foldlevel=99
+setlocal foldmarker={{{,}}}
+setlocal foldmethod=manual
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldtext=v:lua.require'ufo.main'.foldtext()
+setlocal formatexpr=v:lua.vim.lsp.formatexpr()
+setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
+setlocal formatoptions=tcqj
+setlocal iminsert=0
+setlocal imsearch=-1
+setlocal include=^\\s*\\(from\\|import\\)
+setlocal includeexpr=substitute(substitute(substitute(v:fname,b:grandparent_match,b:grandparent_sub,''),b:parent_match,b:parent_sub,''),b:child_match,b:child_sub,'g')
+setlocal indentexpr=nvim_treesitter#indent()
+setlocal indentkeys=0{,0},0),0],:,!^F,o,O,e,<:>,=elif,=except
+setlocal noinfercase
+setlocal iskeyword=@,48-57,_,192-255
+setlocal keywordprg=python3\ -m\ pydoc
+setlocal nolinebreak
+setlocal nolisp
+setlocal lispoptions=
+setlocal nolist
+setlocal matchpairs=(:),{:},[:]
+setlocal modeline
+setlocal modifiable
+setlocal nrformats=bin,hex
+setlocal number
+setlocal numberwidth=2
+setlocal omnifunc=v:lua.vim.lsp.omnifunc
+setlocal nopreserveindent
+setlocal nopreviewwindow
+setlocal quoteescape=\\
+setlocal noreadonly
+setlocal relativenumber
+setlocal norightleft
+setlocal rightleftcmd=search
+setlocal scrollback=-1
+setlocal noscrollbind
+setlocal shiftwidth=4
+setlocal signcolumn=yes
+setlocal smartindent
+setlocal nosmoothscroll
+setlocal softtabstop=4
+setlocal nospell
+setlocal spellcapcheck=[.?!]\\_[\\])'\"\\t\ ]\\+
+setlocal spellfile=
+setlocal spelllang=en
+setlocal spelloptions=noplainbuffer
+setlocal statuscolumn=%{%v:lua.require('statuscol').get_statuscol_string()%}
+setlocal suffixesadd=.py
+setlocal swapfile
+setlocal synmaxcol=3000
+if &syntax != ''
+setlocal syntax=
+endif
+setlocal tabstop=4
+setlocal tagfunc=v:lua.vim.lsp.tagfunc
+setlocal textwidth=0
+setlocal undofile
+setlocal varsofttabstop=
+setlocal vartabstop=
+setlocal winblend=0
+setlocal nowinfixbuf
+setlocal nowinfixheight
+setlocal nowinfixwidth
+setlocal winhighlight=
+setlocal wrap
+setlocal wrapmargin=0
+silent! normal! zE
+sil! 16,21fold
+sil! 14,22fold
+sil! 24,25fold
+sil! 13,25fold
+sil! 29,31fold
+sil! 33,34fold
+sil! 36,37fold
+sil! 28,37fold
+sil! 40,66fold
+sil! 76,82fold
+sil! 88,90fold
+sil! 87,90fold
+sil! 92,93fold
+sil! 73,93fold
+sil! 69,93fold
+sil! 115,123fold
+sil! 114,123fold
+sil! 97,134fold
+let &fdl = &fdl
+let s:l = 1 - ((0 * winheight(0) + 26) / 53)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 1
+normal! 0
+lcd ~/Documents/TUD/pole_angle
+wincmd w
+argglobal
+if bufexists(fnamemodify("~/Documents/TUD/pole_angle/data_processing_v2.py", ":p")) | buffer ~/Documents/TUD/pole_angle/data_processing_v2.py | else | edit ~/Documents/TUD/pole_angle/data_processing_v2.py | endif
+if &buftype ==# 'terminal'
+  silent file ~/Documents/TUD/pole_angle/data_processing_v2.py
+endif
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -236,6 +382,7 @@ setlocal spellfile=
 setlocal spelllang=en
 setlocal spelloptions=noplainbuffer
 setlocal statuscolumn=%{%v:lua.require('statuscol').get_statuscol_string()%}
+setlocal statusline=%!v:lua.require('nvchad.stl.default')()
 setlocal suffixesadd=.py
 setlocal swapfile
 setlocal synmaxcol=3000
@@ -257,27 +404,30 @@ setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
 sil! 11,12fold
-sil! 20,24fold
-sil! 32,36fold
-sil! 43,44fold
-sil! 46,47fold
-sil! 49,50fold
-sil! 8,55fold
-sil! 58,63fold
-sil! 66,72fold
-sil! 89,91fold
+sil! 19,23fold
+sil! 30,34fold
+sil! 41,42fold
+sil! 44,45fold
+sil! 47,48fold
+sil! 8,52fold
+sil! 70,81fold
+sil! 55,88fold
+sil! 94,95fold
 sil! 101,102fold
-sil! 96,103fold
-sil! 94,103fold
-sil! 115,131fold
-sil! 113,137fold
-sil! 106,137fold
-sil! 84,137fold
-sil! 152,153fold
-sil! 163,172fold
-sil! 175,190fold
-sil! 75,203fold
-sil! 206,207fold
+sil! 91,103fold
+sil! 106,107fold
+sil! 108,118fold
+sil! 121,125fold
+sil! 135,138fold
+sil! 143,144fold
+sil! 150,151fold
+sil! 154,158fold
+sil! 160,164fold
+sil! 175,178fold
+sil! 181,191fold
+sil! 126,200fold
+sil! 205,208fold
+sil! 203,210fold
 let &fdl = &fdl
 let s:l = 1 - ((0 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif

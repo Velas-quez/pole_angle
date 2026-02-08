@@ -116,14 +116,14 @@ def transform_to_relative_angles(
     pitch_rad: float = np.arccos(np.clip(v_local[2], -1.0, 1.0))
     # Roll: Azimuth angle in the XY plane (arctan2 returns -PI to PI)
     roll_rad: float = np.arctan2(v_local[1], v_local[0])
-    
+
     # Convert to degrees
     pitch_deg: float = float(np.degrees(pitch_rad))
     roll_deg: float = float(np.degrees(roll_rad))
-    
+
     # Force Roll to [0, 360] range
     roll_deg = roll_deg % 360
-    
+
     return roll_deg, pitch_deg
 
 
@@ -131,7 +131,7 @@ def extract_and_prepare_parquet(
     evtac_path: str,
     markers_path: str,
     opti_path: str,
-    output_name: str = "final_training_data.parquet",
+    output_name: str = "final_test_data.parquet",
 ) -> None:
     """Main pipeline to synchronize and process pre-processed Parquet files."""
 
@@ -146,9 +146,15 @@ def extract_and_prepare_parquet(
     t_end = df_evtac["timestamp"].max() - 2.0
 
     # Filtramos todos os DataFrames para ficarem no mesmo intervalo
-    df_evtac = df_evtac[(df_evtac["timestamp"] >= t_start) & (df_evtac["timestamp"] <= t_end)]
-    df_markers = df_markers[(df_markers["timestamp"] >= t_start) & (df_markers["timestamp"] <= t_end)]
-    df_opti = df_opti[(df_opti["timestamp"] >= t_start) & (df_opti["timestamp"] <= t_end)]
+    df_evtac = df_evtac[
+        (df_evtac["timestamp"] >= t_start) & (df_evtac["timestamp"] <= t_end)
+    ]
+    df_markers = df_markers[
+        (df_markers["timestamp"] >= t_start) & (df_markers["timestamp"] <= t_end)
+    ]
+    df_opti = df_opti[
+        (df_opti["timestamp"] >= t_start) & (df_opti["timestamp"] <= t_end)
+    ]
     # ------------------------------------------------
 
     # 2. Process Evtac Features
@@ -225,8 +231,8 @@ if __name__ == "__main__":
 
     print("Starting data processing...")
     extract_and_prepare_parquet(
-        "preprocessed_data/evtac.parquet",
-        "preprocessed_data/markers.parquet",
-        "preprocessed_data/optitrack.parquet",
+        "data/test/preprocessed/evtac.parquet",
+        "data/test/preprocessed/markers.parquet",
+        "data/test/preprocessed/optitrack.parquet",
     )
     pass

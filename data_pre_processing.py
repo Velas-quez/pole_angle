@@ -101,7 +101,9 @@ def _extract_image_message(msg):
     return msg
 
 
-def _get_image_shape(image_msg, fallback_height: Optional[int], fallback_width: Optional[int]):
+def _get_image_shape(
+    image_msg, fallback_height: Optional[int], fallback_width: Optional[int]
+):
     height = getattr(image_msg, "height", None)
     width = getattr(image_msg, "width", None)
 
@@ -111,7 +113,9 @@ def _get_image_shape(image_msg, fallback_height: Optional[int], fallback_width: 
         width = fallback_width
 
     if height is None or width is None:
-        raise ValueError("Image height/width not found; provide fallback_height and fallback_width.")
+        raise ValueError(
+            "Image height/width not found; provide fallback_height and fallback_width."
+        )
 
     return int(height), int(width)
 
@@ -177,7 +181,9 @@ def _collect_markers_rows(
                 continue
 
             yield {
-                "timestamp": msg.header.stamp.to_sec() if hasattr(msg, "header") else t.to_sec(),
+                "timestamp": msg.header.stamp.to_sec()
+                if hasattr(msg, "header")
+                else t.to_sec(),
                 "markers": list(data),
             }
 
@@ -210,7 +216,9 @@ def _write_or_append_parquet(rows: List[Dict], output_path: str, schema=None) ->
             df_new = pd.concat([df_existing, df_new], ignore_index=True)
         df_new.to_parquet(output_path, index=False)
     else:  # pragma: no cover - extremely unlikely given requirements.txt
-        raise RuntimeError("Neither pyarrow nor pandas is available to write parquet files.")
+        raise RuntimeError(
+            "Neither pyarrow nor pandas is available to write parquet files."
+        )
 
     return output_path
 
@@ -306,7 +314,9 @@ def preprocess_data(
     - evtac.parquet
     """
     base_name = os.path.splitext(os.path.basename(bag_path))[0]
-    optitrack_rows = list(_collect_optitrack_rows(bag_path, OPTITRACK_TOPICS, max_messages))
+    optitrack_rows = list(
+        _collect_optitrack_rows(bag_path, OPTITRACK_TOPICS, max_messages)
+    )
     markers_rows = list(_collect_markers_rows(bag_path, MARKERS_TOPIC, max_messages))
     evtac_rows = list(
         _collect_evtac_rows(
@@ -321,14 +331,18 @@ def preprocess_data(
 
     outputs: Dict[str, str] = {}
     if optitrack_rows:
-        filename = f"{base_name}_optitrack.parquet" if use_base_name else "optitrack.parquet"
+        filename = (
+            f"{base_name}_optitrack.parquet" if use_base_name else "optitrack.parquet"
+        )
         opti_path = os.path.join(output_dir, filename)
         outputs["optitrack"] = _write_optitrack_parquet(optitrack_rows, opti_path)
     else:
         outputs["optitrack"] = ""
 
     if markers_rows:
-        filename = f"{base_name}_markers.parquet" if use_base_name else "markers.parquet"
+        filename = (
+            f"{base_name}_markers.parquet" if use_base_name else "markers.parquet"
+        )
         markers_path = os.path.join(output_dir, filename)
         outputs["markers"] = _write_markers_parquet(markers_rows, markers_path)
     else:
@@ -384,9 +398,11 @@ def preprocess_directory(
 
 
 if __name__ == "__main__":
+    raw_dir = os.path.join("data", "test", "raw")
+    output_dir = os.path.join("data", "test", "preprocessed")
     result_paths = preprocess_directory(
-        raw_data_dir="raw_data",
-        output_dir="preprocessed_data",
+        raw_data_dir=raw_dir,
+        output_dir=output_dir,
         max_messages=None,
     )
 

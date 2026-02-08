@@ -5,3 +5,8 @@ processed_data/*
 *.pyc
 *.bag
 __pycache__/
+mlruns/
+.ipynb_checkpoints/
+.venv/
+preprocessing/
+.session.vim
