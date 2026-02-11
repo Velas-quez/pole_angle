@@ -15,9 +15,17 @@ else
 endif
 badd +1 data_processing_v2.py
 badd +1 model.py
+badd +12 .gitignore
+badd +105 model_multi_quads.py
+badd +16 visualization_lines.py
+badd +130 data_processing.py
+badd +24 data_pre_processing.py
+badd +1420 .venv/lib/python3.13/site-packages/torch/nn/modules/loss.py
+badd +0 ~/.cache/nvim/dap-python-stderr.log
+badd +0 ~/.cache/nvim/dap.log
 argglobal
 %argdel
-edit model.py
+edit model_multi_quads.py
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
@@ -37,11 +45,18 @@ set winminheight=0
 set winheight=1
 set winminwidth=0
 set winwidth=1
-wincmd =
+exe 'vert 1resize ' . ((&columns * 30 + 119) / 238)
+exe 'vert 2resize ' . ((&columns * 103 + 119) / 238)
+exe 'vert 3resize ' . ((&columns * 103 + 119) / 238)
 argglobal
 enew
 file NvimTree_1
-balt data_processing_v2.py
+balt data_processing.py
+let s:cpo_save=&cpo
+set cpo&vim
+inoremap <buffer> <M-e> l<Cmd>lua require('nvim-autopairs.fastwrap').show()
+let &cpo=s:cpo_save
+unlet s:cpo_save
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -93,7 +108,7 @@ setlocal iminsert=0
 setlocal imsearch=-1
 setlocal includeexpr=
 setlocal indentexpr=
-setlocal indentkeys=0{,0},0),0],:,0#,!^F,o,O,e
+setlocal indentkeys=0{,0},0),0],:,!^F,o,O,e,<:>,=elif,=except
 setlocal noinfercase
 setlocal iskeyword=@,48-57,_,192-255
 setlocal nolinebreak
@@ -150,148 +165,12 @@ setlocal wrapmargin=0
 lcd ~/Documents/TUD/pole_angle
 wincmd w
 argglobal
-balt ~/Documents/TUD/pole_angle/data_processing_v2.py
-setlocal keymap=
-setlocal noarabic
-setlocal autoindent
-setlocal nobinary
-setlocal nobreakindent
-setlocal breakindentopt=
-setlocal bufhidden=
-setlocal buflisted
-setlocal buftype=
-setlocal nocindent
-setlocal cinkeys=0{,0},0),0],:,!^F,o,O,e
-setlocal cinoptions=
-setlocal cinscopedecls=public,protected,private
-setlocal cinwords=if,else,while,do,for,switch
-setlocal colorcolumn=
-setlocal comments=b:#,fb:-
-setlocal commentstring=#\ %s
-setlocal complete=.,w,b,u,t
-setlocal completefunc=
-setlocal completeslash=
-setlocal concealcursor=
-setlocal conceallevel=0
-setlocal nocopyindent
-setlocal nocursorbind
-setlocal nocursorcolumn
-setlocal cursorline
-setlocal cursorlineopt=number
-setlocal define=^\\s*\\(\\(async\\s\\+\\)\\?def\\|class\\)
-setlocal nodiff
-setlocal eventignorewin=
-setlocal expandtab
-if &filetype != 'python'
-setlocal filetype=python
-endif
-setlocal fillchars=eob:\ ,fold:\ ,foldclose:,foldopen:,foldsep:\ 
-setlocal fixendofline
-setlocal foldcolumn=1
-setlocal foldenable
-setlocal foldexpr=0
-setlocal foldignore=#
-setlocal foldlevel=99
-setlocal foldmarker={{{,}}}
-setlocal foldmethod=manual
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldtext=v:lua.require'ufo.main'.foldtext()
-setlocal formatexpr=v:lua.vim.lsp.formatexpr()
-setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
-setlocal formatoptions=tcqj
-setlocal iminsert=0
-setlocal imsearch=-1
-setlocal include=^\\s*\\(from\\|import\\)
-setlocal includeexpr=substitute(substitute(substitute(v:fname,b:grandparent_match,b:grandparent_sub,''),b:parent_match,b:parent_sub,''),b:child_match,b:child_sub,'g')
-setlocal indentexpr=nvim_treesitter#indent()
-setlocal indentkeys=0{,0},0),0],:,!^F,o,O,e,<:>,=elif,=except
-setlocal noinfercase
-setlocal iskeyword=@,48-57,_,192-255
-setlocal keywordprg=python3\ -m\ pydoc
-setlocal nolinebreak
-setlocal nolisp
-setlocal lispoptions=
-setlocal nolist
-setlocal matchpairs=(:),{:},[:]
-setlocal modeline
-setlocal modifiable
-setlocal nrformats=bin,hex
-setlocal number
-setlocal numberwidth=2
-setlocal omnifunc=v:lua.vim.lsp.omnifunc
-setlocal nopreserveindent
-setlocal nopreviewwindow
-setlocal quoteescape=\\
-setlocal noreadonly
-setlocal relativenumber
-setlocal norightleft
-setlocal rightleftcmd=search
-setlocal scrollback=-1
-setlocal noscrollbind
-setlocal shiftwidth=4
-setlocal signcolumn=yes
-setlocal smartindent
-setlocal nosmoothscroll
-setlocal softtabstop=4
-setlocal nospell
-setlocal spellcapcheck=[.?!]\\_[\\])'\"\\t\ ]\\+
-setlocal spellfile=
-setlocal spelllang=en
-setlocal spelloptions=noplainbuffer
-setlocal statuscolumn=%{%v:lua.require('statuscol').get_statuscol_string()%}
-setlocal suffixesadd=.py
-setlocal swapfile
-setlocal synmaxcol=3000
-if &syntax != ''
-setlocal syntax=
-endif
-setlocal tabstop=4
-setlocal tagfunc=v:lua.vim.lsp.tagfunc
-setlocal textwidth=0
-setlocal undofile
-setlocal varsofttabstop=
-setlocal vartabstop=
-setlocal winblend=0
-setlocal nowinfixbuf
-setlocal nowinfixheight
-setlocal nowinfixwidth
-setlocal winhighlight=
-setlocal wrap
-setlocal wrapmargin=0
-silent! normal! zE
-sil! 16,21fold
-sil! 14,22fold
-sil! 24,25fold
-sil! 13,25fold
-sil! 29,31fold
-sil! 33,34fold
-sil! 36,37fold
-sil! 28,37fold
-sil! 40,66fold
-sil! 76,82fold
-sil! 88,90fold
-sil! 87,90fold
-sil! 92,93fold
-sil! 73,93fold
-sil! 69,93fold
-sil! 115,123fold
-sil! 114,123fold
-sil! 97,134fold
-let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 26) / 53)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 1
-normal! 0
-lcd ~/Documents/TUD/pole_angle
-wincmd w
-argglobal
-if bufexists(fnamemodify("~/Documents/TUD/pole_angle/data_processing_v2.py", ":p")) | buffer ~/Documents/TUD/pole_angle/data_processing_v2.py | else | edit ~/Documents/TUD/pole_angle/data_processing_v2.py | endif
-if &buftype ==# 'terminal'
-  silent file ~/Documents/TUD/pole_angle/data_processing_v2.py
-endif
+balt ~/Documents/TUD/pole_angle/.venv/lib/python3.13/site-packages/torch/nn/modules/loss.py
+let s:cpo_save=&cpo
+set cpo&vim
+inoremap <buffer> <M-e> l<Cmd>lua require('nvim-autopairs.fastwrap').show()
+let &cpo=s:cpo_save
+unlet s:cpo_save
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -345,8 +224,165 @@ setlocal iminsert=0
 setlocal imsearch=-1
 setlocal include=^\\s*\\(from\\|import\\)
 setlocal includeexpr=substitute(substitute(substitute(v:fname,b:grandparent_match,b:grandparent_sub,''),b:parent_match,b:parent_sub,''),b:child_match,b:child_sub,'g')
-setlocal indentexpr=nvim_treesitter#indent()
-setlocal indentkeys=0{,0},0),0],:,0#,!^F,o,O,e,<:>,=elif,=except
+setlocal indentexpr=python#GetIndent(v:lnum)
+setlocal indentkeys=0{,0},0),0],:,!^F,o,O,e,<:>,=elif,=except
+setlocal noinfercase
+setlocal iskeyword=@,48-57,_,192-255
+setlocal keywordprg=python3\ -m\ pydoc
+setlocal nolinebreak
+setlocal nolisp
+setlocal lispoptions=
+setlocal nolist
+setlocal matchpairs=(:),{:},[:]
+setlocal modeline
+setlocal modifiable
+setlocal nrformats=bin,hex
+setlocal number
+setlocal numberwidth=2
+setlocal omnifunc=v:lua.vim.lsp.omnifunc
+setlocal nopreserveindent
+setlocal nopreviewwindow
+setlocal quoteescape=\\
+setlocal noreadonly
+setlocal relativenumber
+setlocal norightleft
+setlocal rightleftcmd=search
+setlocal scrollback=-1
+setlocal noscrollbind
+setlocal shiftwidth=4
+setlocal signcolumn=yes
+setlocal smartindent
+setlocal nosmoothscroll
+setlocal softtabstop=4
+setlocal nospell
+setlocal spellcapcheck=[.?!]\\_[\\])'\"\\t\ ]\\+
+setlocal spellfile=
+setlocal spelllang=en
+setlocal spelloptions=noplainbuffer
+setlocal statuscolumn=%{%v:lua.require('statuscol').get_statuscol_string()%}
+setlocal statusline=%!v:lua.require('nvchad.stl.default')()
+setlocal suffixesadd=.py
+setlocal swapfile
+setlocal synmaxcol=3000
+if &syntax != ''
+setlocal syntax=
+endif
+setlocal tabstop=4
+setlocal tagfunc=v:lua.vim.lsp.tagfunc
+setlocal textwidth=0
+setlocal undofile
+setlocal varsofttabstop=
+setlocal vartabstop=
+setlocal winblend=0
+setlocal nowinfixbuf
+setlocal nowinfixheight
+setlocal nowinfixwidth
+setlocal winhighlight=
+setlocal wrap
+setlocal wrapmargin=0
+silent! normal! zE
+sil! 16,27fold
+sil! 33,35fold
+sil! 37,38fold
+sil! 40,41fold
+sil! 32,41fold
+sil! 48,62fold
+sil! 46,63fold
+sil! 65,68fold
+sil! 45,68fold
+sil! 72,77fold
+sil! 86,87fold
+sil! 93,94fold
+sil! 96,97fold
+sil! 107,108fold
+sil! 80,113fold
+sil! 121,122fold
+sil! 132,145fold
+sil! 151,162fold
+sil! 150,162fold
+sil! 169,171fold
+sil! 168,173fold
+sil! 177,178fold
+sil! 176,179fold
+sil! 129,179fold
+sil! 117,179fold
+sil! 190,193fold
+sil! 182,193fold
+let &fdl = &fdl
+let s:l = 105 - ((24 * winheight(0) + 27) / 54)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 105
+normal! 05|
+lcd ~/Documents/TUD/pole_angle
+wincmd w
+argglobal
+if bufexists(fnamemodify("~/Documents/TUD/pole_angle/data_processing.py", ":p")) | buffer ~/Documents/TUD/pole_angle/data_processing.py | else | edit ~/Documents/TUD/pole_angle/data_processing.py | endif
+if &buftype ==# 'terminal'
+  silent file ~/Documents/TUD/pole_angle/data_processing.py
+endif
+balt ~/Documents/TUD/pole_angle/model_multi_quads.py
+let s:cpo_save=&cpo
+set cpo&vim
+inoremap <buffer> <M-e> l<Cmd>lua require('nvim-autopairs.fastwrap').show()
+let &cpo=s:cpo_save
+unlet s:cpo_save
+setlocal keymap=
+setlocal noarabic
+setlocal autoindent
+setlocal nobinary
+setlocal nobreakindent
+setlocal breakindentopt=
+setlocal bufhidden=
+setlocal buflisted
+setlocal buftype=
+setlocal nocindent
+setlocal cinkeys=0{,0},0),0],:,!^F,o,O,e
+setlocal cinoptions=
+setlocal cinscopedecls=public,protected,private
+setlocal cinwords=if,else,while,do,for,switch
+setlocal colorcolumn=
+setlocal comments=b:#,fb:-
+setlocal commentstring=#\ %s
+setlocal complete=.,w,b,u,t
+setlocal completefunc=
+setlocal completeslash=
+setlocal concealcursor=
+setlocal conceallevel=0
+setlocal nocopyindent
+setlocal nocursorbind
+setlocal nocursorcolumn
+setlocal cursorline
+setlocal cursorlineopt=number
+setlocal define=^\\s*\\(\\(async\\s\\+\\)\\?def\\|class\\)
+setlocal nodiff
+setlocal eventignorewin=
+setlocal expandtab
+if &filetype != 'python'
+setlocal filetype=python
+endif
+setlocal fillchars=eob:\ ,fold:\ ,foldclose:,foldopen:,foldsep:\ 
+setlocal fixendofline
+setlocal foldcolumn=1
+setlocal foldenable
+setlocal foldexpr=0
+setlocal foldignore=#
+setlocal foldlevel=99
+setlocal foldmarker={{{,}}}
+setlocal foldmethod=manual
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldtext=v:lua.require'ufo.main'.foldtext()
+setlocal formatexpr=v:lua.vim.lsp.formatexpr()
+setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
+setlocal formatoptions=tcqj
+setlocal iminsert=0
+setlocal imsearch=-1
+setlocal include=^\\s*\\(from\\|import\\)
+setlocal includeexpr=substitute(substitute(substitute(v:fname,b:grandparent_match,b:grandparent_sub,''),b:parent_match,b:parent_sub,''),b:child_match,b:child_sub,'g')
+setlocal indentexpr=python#GetIndent(v:lnum)
+setlocal indentkeys=0{,0},0),0],:,!^F,o,O,e,<:>,=elif,=except
 setlocal noinfercase
 setlocal iskeyword=@,48-57,_,192-255
 setlocal keywordprg=python3\ -m\ pydoc
@@ -403,42 +439,64 @@ setlocal winhighlight=
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-sil! 11,12fold
-sil! 19,23fold
-sil! 30,34fold
-sil! 41,42fold
-sil! 44,45fold
-sil! 47,48fold
-sil! 8,52fold
-sil! 70,81fold
-sil! 55,88fold
-sil! 94,95fold
-sil! 101,102fold
-sil! 91,103fold
-sil! 106,107fold
-sil! 108,118fold
-sil! 121,125fold
-sil! 135,138fold
-sil! 143,144fold
-sil! 150,151fold
-sil! 154,158fold
-sil! 160,164fold
-sil! 175,178fold
-sil! 181,191fold
-sil! 126,200fold
-sil! 205,208fold
-sil! 203,210fold
+sil! 12,13fold
+sil! 20,24fold
+sil! 31,35fold
+sil! 42,43fold
+sil! 45,46fold
+sil! 48,49fold
+sil! 9,53fold
+sil! 69,73fold
+sil! 76,79fold
+sil! 83,89fold
+sil! 92,93fold
+sil! 95,96fold
+sil! 68,98fold
+sil! 67,98fold
+sil! 56,100fold
+sil! 105,106fold
+sil! 111,112fold
+sil! 103,113fold
+sil! 116,122fold
+sil! 129,130fold
+sil! 147,148fold
+sil! 152,155fold
+sil! 151,157fold
+sil! 160,163fold
+sil! 159,165fold
+sil! 168,169fold
+sil! 171,172fold
+sil! 174,177fold
+sil! 181,184fold
+sil! 186,187fold
+sil! 192,193fold
+sil! 201,202fold
+sil! 206,207fold
+sil! 219,223fold
+sil! 229,233fold
+sil! 241,247fold
+sil! 249,250fold
+sil! 239,251fold
+sil! 238,251fold
+sil! 141,257fold
+sil! 259,262fold
+sil! 263,264fold
+sil! 123,264fold
+sil! 268,278fold
+sil! 267,279fold
 let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 26) / 53)
+let s:l = 134 - ((9 * winheight(0) + 27) / 54)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 1
-normal! 0
+keepjumps 134
+normal! 033|
 lcd ~/Documents/TUD/pole_angle
 wincmd w
 2wincmd w
-wincmd =
+exe 'vert 1resize ' . ((&columns * 30 + 119) / 238)
+exe 'vert 2resize ' . ((&columns * 103 + 119) / 238)
+exe 'vert 3resize ' . ((&columns * 103 + 119) / 238)
 tabnext 1
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf
@@ -454,7 +512,6 @@ if filereadable(s:sx)
 endif
 let &g:so = s:so_save | let &g:siso = s:siso_save
 set hlsearch
-nohlsearch
 doautoall SessionLoadPost
 unlet SessionLoad
 " vim: set ft=vim :

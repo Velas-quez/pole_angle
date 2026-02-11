@@ -15,77 +15,20 @@ from typing import Tuple, List
 # --- 0. Hyperparameters ---
 PARAMS = {
     "batch_size": 128,
-    "learning_rate": 0.005,
-    "epochs": 200,
-    "hidden_size_1": 128,
-    "hidden_size_2": 64,
-    "hidden_size_3": 32,
-    "dropout": 0.1,
-    "pitch_weight": 2.0,  # Give more importance to Pitch accuracy
-    "manifold_weight": 0.1,  # Penalty for sin^2 + cos^2 != 1
-    "scheduler_patience": 7,
-    "scheduler_factor": 0.6,
+    "learning_rate": 0.002,  # Reduzido levemente para estabilidade com Cosine Loss
+    "epochs": 400,
+    "hidden_size_1": 256,
+    "hidden_size_2": 128,
+    "hidden_size_3": 64,
+    "hidden_size_4": 32,
+    "dropout": 0.10,
+    "scheduler_patience": 8,
+    "scheduler_factor": 0.5,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
 }
 
 
-# --- 1. Custom Weighted Loss Function ---
-class WeightedTrigLoss(nn.Module):
-    def __init__(self, pitch_weight: float = 2.0, manifold_weight: float = 0.1):
-        super(WeightedTrigLoss, self).__init__()
-        self.mse = nn.MSELoss()
-        self.p_weight = pitch_weight
-        self.m_weight = manifold_weight
-
-    def forward(self, predictions: torch.Tensor, targets: torch.Tensor):
-        # predictions/targets: [sin_roll, cos_roll, cos_pitch]
-
-        # 1. Roll MSE (Trigonometric components)
-        loss_r_sin = self.mse(predictions[:, 0], targets[:, 0])
-        loss_r_cos = self.mse(predictions[:, 1], targets[:, 1])
-        roll_loss = loss_r_sin + loss_r_cos
-
-        # 2. Pitch MSE (Single monotonic component)
-        pitch_loss = self.mse(predictions[:, 2], targets[:, 2])
-
-        # 3. Unit Circle Penalty (sin^2 + cos^2 should be 1)
-        # Forces the model to keep Roll on the unit circle manifold
-        manifold_err = self.mse(
-            predictions[:, 0] ** 2 + predictions[:, 1] ** 2,
-            torch.ones_like(predictions[:, 0]),
-        )
-
-        total_loss = (
-            (self.p_weight * pitch_loss) + roll_loss + (self.m_weight * manifold_err)
-        )
-
-        return total_loss, roll_loss.item(), pitch_loss.item()
-
-
-# --- 2. Model Definition ---
-class TactileMLP(nn.Module):
-    def __init__(self, input_size: int):
-        super(TactileMLP, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_size, PARAMS["hidden_size_1"]),
-            nn.BatchNorm1d(PARAMS["hidden_size_1"]),
-            nn.ReLU(),
-            nn.Dropout(PARAMS["dropout"]),
-            nn.Linear(PARAMS["hidden_size_1"], PARAMS["hidden_size_2"]),
-            nn.BatchNorm1d(PARAMS["hidden_size_2"]),
-            nn.ReLU(),
-            nn.Linear(PARAMS["hidden_size_2"], PARAMS["hidden_size_3"]),
-            nn.BatchNorm1d(PARAMS["hidden_size_3"]),
-            nn.ReLU(),
-            # 3 outputs: [sin_roll, cos_roll, cos_pitch]
-            nn.Linear(PARAMS["hidden_size_3"], 3),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.network(x)
-
-
-# --- 3. Data & Helper Functions ---
+# --- 1. Dataset Class ---
 class TactileDataset(Dataset):
     def __init__(self, features, targets):
         self.features = torch.tensor(features, dtype=torch.float32)
@@ -98,39 +41,82 @@ class TactileDataset(Dataset):
         return self.features[idx], self.targets[idx]
 
 
-def get_angles_from_output(output: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Reconstructs Roll [0,360) and Pitch [0,180] from trig components."""
-    sin_r, cos_r, cos_p = output[:, 0], output[:, 1], output[:, 2]
-    roll_deg = torch.rad2deg(torch.atan2(sin_r, cos_r)) % 360
-    pitch_deg = torch.rad2deg(torch.acos(torch.clamp(cos_p, -1.0, 1.0)))
-    return roll_deg, pitch_deg
+# --- 2. Model Definition with L2 Normalization ---
+class TactileMLP(nn.Module):
+    def __init__(self, input_size: int):
+        super(TactileMLP, self).__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_size, PARAMS["hidden_size_1"]),
+            nn.BatchNorm1d(PARAMS["hidden_size_1"]),
+            nn.ReLU(),
+            nn.Dropout(PARAMS["dropout"]),
+            nn.Linear(PARAMS["hidden_size_1"], PARAMS["hidden_size_2"]),
+            nn.BatchNorm1d(PARAMS["hidden_size_2"]),
+            nn.ReLU(),
+            nn.Dropout(PARAMS["dropout"]),
+            nn.Linear(PARAMS["hidden_size_2"], PARAMS["hidden_size_3"]),
+            nn.BatchNorm1d(PARAMS["hidden_size_3"]),
+            nn.ReLU(),
+            nn.Dropout(PARAMS["dropout"]),
+            nn.Linear(PARAMS["hidden_size_3"], PARAMS["hidden_size_4"]),
+            nn.BatchNorm1d(PARAMS["hidden_size_4"]),
+            nn.ReLU(),
+            nn.Linear(PARAMS["hidden_size_4"], 3),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.network(x)
+        # Normalização L2 na última camada: garante que o vetor de saída seja unitário
+        return out / (torch.norm(out, p=2, dim=1, keepdim=True) + 1e-8)
+
+
+# --- 3. Helper Functions ---
+def get_angular_error(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Calculates angular error in degrees between unit vectors."""
+    # Como as saídas já estão normalizadas, o dot product é a própria similaridade de cosseno
+    cos_theta = torch.sum(pred * target, dim=1)
+    cos_theta = torch.clamp(cos_theta, -1.0 + 1e-7, 1.0 - 1e-7)
+    return torch.rad2deg(torch.acos(cos_theta))
 
 
 def prepare_data(parquet_path: str, batch_size: int):
     df = pd.read_parquet(parquet_path)
-    feature_cols = [c for c in df.columns if "target" not in c]
 
-    # Trig conversions
-    r_rad, p_rad = (
-        np.radians(df["target_roll"].values),
-        np.radians(df["target_pitch"].values),
-    )
-    y = np.stack([np.sin(r_rad), np.cos(r_rad), np.cos(p_rad)], axis=1)
+    # Filtro de colunas: removemos os alvos e colunas de debug (base_euler)
+    target_cols = ["target_x", "target_y", "target_z"]
+    meta_cols = ["source_bag", "base_roll", "base_pitch", "base_yaw"]
+    feature_cols = [
+        c for c in df.columns if c not in target_cols and c not in meta_cols
+    ]
+    split_idx1 = int(0.7 * len(df))
+    split_idx2 = int(0.85 * len(df))
+    df_train = df.iloc[:split_idx1]
+    df_val = df.iloc[split_idx1:split_idx2]
+    df_test = df.iloc[split_idx2:]
+    X_train = df_train[feature_cols].values
+    y_train = df_train[target_cols].values
+    X_val = df_val[feature_cols].values
+    y_val = df_val[target_cols].values
+    X_test = df_test[feature_cols].values
+    y_test = df_test[target_cols].values
 
-    X = df[feature_cols].values
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y, test_size=0.3, random_state=42
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.5, random_state=42
-    )
+    # X = df[feature_cols].values
+    # y = df[target_cols].values
+    #
+    # X_train, X_temp, y_train, y_temp = train_test_split(
+    #     X, y, test_size=0.3, random_state=42
+    # )
+    # X_val, X_test, y_val, y_test = train_test_split(
+    #     X_temp, y_temp, test_size=0.5, random_state=42
+    # )
 
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
-    # joblib.dump(scaler, pjoin("preprocessing", "scaler.pkl"))
-    # raise ValueError
     X_val, X_test = scaler.transform(X_val), scaler.transform(X_test)
 
+    # Salvar scaler para uso futuro em tempo real
+    joblib.dump(scaler, "scaler.pkl")
+    raise ValueError
     train_loader = DataLoader(
         TactileDataset(X_train, y_train), batch_size=batch_size, shuffle=True
     )
@@ -141,65 +127,107 @@ def prepare_data(parquet_path: str, batch_size: int):
 
 
 # --- 4. Training Loop ---
-def train_model(model, train_loader, val_loader, device):
-    criterion = WeightedTrigLoss(PARAMS["pitch_weight"], PARAMS["manifold_weight"])
+def train_model(model, train_loader, val_loader, test_loader, device):
+    # CosineEmbeddingLoss minimiza 1 - cos(pred, target)
+    criterion = nn.CosineEmbeddingLoss()
     optimizer = optim.Adam(model.parameters(), lr=PARAMS["learning_rate"])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, patience=PARAMS["scheduler_patience"]
     )
 
+    # 'ones' é necessário para a CosineEmbeddingLoss saber que queremos os vetores IGUAIS
+    # (similaridade = 1)
+    target_similarity = torch.ones(PARAMS["batch_size"]).to(device)
+
     for epoch in range(PARAMS["epochs"]):
         model.train()
+        train_loss = 0.0
         for inputs, targets in train_loader:
             inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
-            loss, _, _ = criterion(model(inputs), targets)
+
+            outputs = model(inputs)
+
+            # Ajuste de tamanho para o último batch caso seja menor que o batch_size
+            curr_batch_size = inputs.size(0)
+            flag = torch.ones(curr_batch_size).to(device)
+
+            loss = criterion(outputs, targets, flag)
             loss.backward()
             optimizer.step()
+            train_loss += loss.item()
 
         # Validation
         model.eval()
-        v_loss, mae_r, mae_p = 0.0, 0.0, 0.0
+        v_loss, angular_err = 0.0, 0.0
         with torch.no_grad():
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
-                l_total, _, _ = criterion(outputs, targets)
-                v_loss += l_total.item()
 
-                # Accuracy tracking in degrees
-                pr, pp = get_angles_from_output(outputs)
-                tr, tp = get_angles_from_output(targets)
-                r_err = torch.abs(pr - tr)
-                mae_r += torch.min(r_err, 360 - r_err).mean().item()
-                mae_p += torch.abs(pp - tp).mean().item()
+                curr_batch_size = inputs.size(0)
+                flag = torch.ones(curr_batch_size).to(device)
+
+                loss = criterion(outputs, targets, flag)
+                v_loss += loss.item()
+
+                err_deg = get_angular_error(outputs, targets)
+                angular_err += err_deg.mean().item()
 
         avg_loss = v_loss / len(val_loader)
+        avg_ang_err = angular_err / len(val_loader)
         scheduler.step(avg_loss)
+
         mlflow.log_metrics(
             {
                 "val_loss": avg_loss,
-                "mae_roll_deg": mae_r / len(val_loader),
-                "mae_pitch_deg": mae_p / len(val_loader),
+                "avg_angular_error_deg": avg_ang_err,
             },
             step=epoch,
         )
 
         if epoch % 10 == 0:
             print(
-                f"Epoch {epoch} | Roll Err: {mae_r / len(val_loader):.2f}° | Pitch Err: {mae_p / len(val_loader):.2f}°"
+                f"Epoch {epoch:03d} | Loss: {avg_loss:.6f} | Ang. Error: {avg_ang_err:.2f}°"
             )
+        # Validation
+    model.eval()
+    v_loss, angular_err = 0.0, 0.0
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+
+            curr_batch_size = inputs.size(0)
+            flag = torch.ones(curr_batch_size).to(device)
+
+            loss = criterion(outputs, targets, flag)
+            v_loss += loss.item()
+
+            err_deg = get_angular_error(outputs, targets)
+            angular_err += err_deg.mean().item()
+
+    avg_loss = v_loss / len(val_loader)
+    avg_ang_err = angular_err / len(val_loader)
+    scheduler.step(avg_loss)
+
+    mlflow.log_metrics(
+        {
+            "test_loss": avg_loss,
+            "test_avg_angular_error_deg": avg_ang_err,
+        },
+    )
 
 
 if __name__ == "__main__":
-    filepath = pjoin("data", "final_training_data.parquet")
-    mlflow.set_experiment("Tactile_Weighted_Trig")
+    filepath = pjoin("data", "train", "final_training_data_8quads.parquet")
+    mlflow.set_experiment("Tactile_Vector_Cosine_Loss")
     dev = PARAMS["device"]
-    train_ld, val_ld, test_ld, in_dim = prepare_data(filepath, PARAMS["batch_size"])
 
+    train_ld, val_ld, test_ld, in_dim = prepare_data(filepath, PARAMS["batch_size"])
     model = TactileMLP(in_dim).to(dev)
+
     with mlflow.start_run():
         mlflow.log_params(PARAMS)
-        train_model(model, train_ld, val_ld, dev)
+        train_model(model, train_ld, val_ld, test_ld, dev)
         mlflow.pytorch.log_model(model, "model")
-
