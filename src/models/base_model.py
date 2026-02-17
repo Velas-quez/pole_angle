@@ -8,19 +8,25 @@ from functools import cached_property
 from omegaconf import DictConfig
 from sklearn.pipeline import Pipeline
 
-class BaseTactileTrainer(ABC):
+
+class BaseTactileModel(ABC):
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
-        self.device = torch.device(cfg.params.device if torch.cuda.is_available() else "cpu")
-        
+        self.device = torch.device(
+            cfg.params.device if torch.cuda.is_available() else "cpu"
+        )
+
         # Objetos que serão populados durante o ciclo de vida
-        self.model = None
-        self.pipeline = None 
+        self.model = self.build_model(input_dim=cfg.model.input_dim)
 
     @abstractmethod
     def build_model(self, input_dim: int) -> nn.Module:
         """Deve retornar a arquitetura PyTorch."""
         pass
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Encaminha os dados pelo modelo. Pode ser sobrescrito para lógica customizada."""
+        return self.model(x)
 
     @cached_property
     def criterion(self) -> nn.Module:
@@ -32,30 +38,14 @@ class BaseTactileTrainer(ABC):
         """Instanciado via Hydra após o modelo estar no device correto."""
         if self.model is None:
             raise RuntimeError("Modelo deve ser inicializado antes do optimizer.")
-        return hydra.utils.instantiate(self.cfg.optimizer, params=self.model.parameters())
+        return hydra.utils.instantiate(
+            self.cfg.optimizer, params=self.model.parameters()
+        )
 
     @cached_property
     def scheduler(self):
         """Scheduler para ajuste de Learning Rate."""
         return hydra.utils.instantiate(self.cfg.scheduler, optimizer=self.optimizer)
-
-    @abstractmethod
-    def create_pipeline(self) -> Pipeline:
-        """Define o Pipeline do Sklearn (Scaler, Selectors, etc.)."""
-        pass
-
-    def save_artifacts(self, path: str = "artifacts"):
-        """Salva localmente e loga no MLflow."""
-        import os
-        os.makedirs(path, exist_ok=True)
-        
-        # Salva o Pipeline (o .pkl mais importante)
-        pipeline_path = os.path.join(path, "pipeline.pkl")
-        joblib.dump(self.pipeline, pipeline_path)
-        mlflow.log_artifact(pipeline_path, "preprocessing")
-        
-        # Loga o modelo PyTorch
-        mlflow.pytorch.log_model(self.model, "model")
 
     def train_step(self, loader):
         """Lógica de um passo de treino."""
@@ -72,3 +62,4 @@ class BaseTactileTrainer(ABC):
         """
         # ... implementaremos o gerenciamento de estados aqui
         pass
+
