@@ -1,7 +1,7 @@
 # Predict Pole Angle with Tactile Data
 
 
-📊 **Data Loading & Normalization Pipeline**
+## 📊 **Data Loading & Normalization Pipeline**
 
 `utils/dataloader.py` handles the final transition from processed Parquet data to PyTorch-ready tensors. 
 
@@ -48,7 +48,7 @@ train_loader, val_loader, _, scaler, input_dim = create_loaders(
 ) -->
 
 
-⚙️ **Training Engine** (`trainer.py`)
+## ⚙️ **Training Engine** (`trainer.py`)
 
 
 - **Optimizer & Scheduling**  
@@ -64,7 +64,7 @@ train_loader, val_loader, _, scaler, input_dim = create_loaders(
 - **Hardware Handling**  
   Automatically moves model and data to GPU (CUDA) or CPU based on environment.
 
-🛠️ **Configuration (Hydra + YAML)**
+## 🛠️ **Configuration (Hydra + YAML)**
 
 Uses **Hydra** for clean, code-free hyperparameter and experiment management.
 
@@ -133,7 +133,7 @@ python train.py resume_run_id="abc123..."
 - Make sure `name_id` matches the model filename
 
 
-🏗️ **Experiment Orchestrator** (`train.py`)
+## 🏗️ **Experiment Orchestrator** (`train.py`)
 
 Central script that coordinates the full training workflow.
 
