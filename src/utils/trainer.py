@@ -1,85 +1,73 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
 import mlflow
-from tqdm import tqdm
+import copy
 
-
-def run_training_loop(
-    model, train_loader, val_loader, criterion, optimizer, scheduler, cfg, device
-):
-    """
-    Motor de treino agnóstico.
-    Recebe os componentes de otimização já instanciados pelo Hydra no train.py.
-    """
-    best_val_loss = float("inf")
-    best_model_state = None
+def run_training_loop(model, train_loader, val_loader, cfg, device):
+    """Handles the optimization, scheduling, and weight updates."""
+    
+    # 1. Optimizer and Loss
+    optimizer = optim.Adam(model.parameters(), lr=cfg.training.lr)
+    criterion = nn.MSELoss()
+    
+    # 2. Scheduler (using your YAML params)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, 
+        mode='min', 
+        factor=cfg.training.scheduler_factor, 
+        patience=cfg.training.scheduler_patience
+    )
+    
+    best_val_loss = float('inf')
+    best_model_wts = copy.deepcopy(model.state_dict())
 
     for epoch in range(cfg.training.epochs):
-        # --- FASE DE TREINO ---
+        # --- TRAINING PHASE ---
         model.train()
-        train_loss = 0.0
-        for inputs, targets in tqdm(
-            train_loader, desc=f"Epoch {epoch} [Train]", leave=False
-        ):
+        running_loss = 0.0
+        for inputs, targets in train_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-
+            
             optimizer.zero_grad()
             outputs = model(inputs)
-
-            # Suporte flexível para CosineEmbeddingLoss ou MSE
-            if isinstance(criterion, torch.nn.CosineEmbeddingLoss):
-                loss = criterion(
-                    outputs, targets, torch.ones(inputs.size(0)).to(device)
-                )
-            else:
-                loss = criterion(outputs, targets)
-
+            loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
-            train_loss += loss.item()
+            
+            running_loss += loss.item() * inputs.size(0)
+        
+        epoch_train_loss = running_loss / len(train_loader.dataset)
 
-        # --- FASE DE VALIDAÇÃO ---
+        # --- VALIDATION PHASE ---
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item() * inputs.size(0)
+        
+        epoch_val_loss = val_loss / len(val_loader.dataset)
 
-                if isinstance(criterion, torch.nn.CosineEmbeddingLoss):
-                    loss = criterion(
-                        outputs, targets, torch.ones(inputs.size(0)).to(device)
-                    )
-                else:
-                    loss = criterion(outputs, targets)
-                val_loss += loss.item()
+        # 3. Update Scheduler & Track Progress
+        scheduler.step(epoch_val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        
+        # Log to MLflow
+        mlflow.log_metric("train_loss", epoch_train_loss, step=epoch)
+        mlflow.log_metric("val_loss", epoch_val_loss, step=epoch)
+        mlflow.log_metric("lr", current_lr, step=epoch)
 
-        avg_train_loss = train_loss / len(train_loader)
-        avg_val_loss = val_loss / len(val_loader)
+        # Checkpoint: Save the best model
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            best_model_wts = copy.deepcopy(model.state_dict())
+            
+        if epoch % 10 == 0:
+            print(f"Epoch {epoch}/{cfg.training.epochs} | Train Loss: {epoch_train_loss:.4f} | Val Loss: {epoch_val_loss:.4f} | LR: {current_lr}")
 
-        # --- SCHEDULER & LOGGING ---
-        if scheduler:
-            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(avg_val_loss)
-            else:
-                scheduler.step()
-
-        mlflow.log_metrics(
-            {
-                "train_loss": avg_train_loss,
-                "val_loss": avg_val_loss,
-                "lr": optimizer.param_groups[0]["lr"],
-            },
-            step=epoch,
-        )
-
-        # --- CHECKPOINT LOGIC ---
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            # Em vez de salvar arquivo, retornamos o melhor estado
-            best_model_state = model.state_dict()
-
-    # Carrega os melhores pesos antes de retornar
-    if best_model_state:
-        model.load_state_dict(best_model_state)
-
+    # Load best weights before returning
+    model.load_state_dict(best_model_wts)
     return model

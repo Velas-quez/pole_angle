@@ -46,3 +46,21 @@ train_loader, val_loader, _, scaler, input_dim = create_loaders(
     batch_size=cfg.training.batch_size,
     existing_scaler=None  # Pass a loaded scaler here if resuming a Run
 ) -->
+
+
+⚙️ **Training Engine** (`trainer.py`)
+
+
+- **Optimizer & Scheduling**  
+  Adam optimizer + ReduceLROnPlateau (reduces LR by `scheduler_factor` after `scheduler_patience` epochs of no val loss improvement).
+
+- **Best Model Checkpointing**  
+  Tracks validation loss → saves deep copy of weights at lowest val loss → restores best weights at the end (prevents returning overfitted final model).
+
+- **Experiment Tracking**  
+  Logs `train_loss`, `val_loss`, `learning_rate` to MLflow every epoch.  
+  Prints clean progress summary every 10 epochs.
+
+- **Hardware Handling**  
+  Automatically moves model and data to GPU (CUDA) or CPU based on environment.
+
