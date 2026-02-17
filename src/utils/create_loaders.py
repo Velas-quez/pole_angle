@@ -62,8 +62,9 @@ def create_loaders(df, batch_size=128, existing_scaler=None):
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
     input_dim = len(feature_cols)
+    output_dim = len(target_cols)
     
     print(f"✅ Data Ready: {len(train_ds)} train samples, {len(val_ds)} val samples.")
     
     # return None for test_loader 
-    return train_loader, val_loader, None, scaler, input_dim
+    return train_loader, val_loader, None, scaler, input_dim, output_dim

@@ -3,89 +3,92 @@ import hydra
 import joblib
 import mlflow
 import torch
-import torch.nn as nn
-from omegaconf import DictConfig, OmegaConf
+import importlib
+from omegaconf import DictConfig
 
-# Modular imports follow the Strategy and Factory patterns
-from models.mlp import TactileMLP
-from processing.hu_moments_strategy import HuMomentsStrategy
+# Core utility imports
 from utils.dataloader import create_loaders 
+from utils.trainer import run_training_loop
 
-# Hydra Decorator: manages configuration files in the /conf folder
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+def get_dynamic_class(folder, prefix, name_id, class_name):
+    """
+    Helper to dynamically import classes.
+    folder: 'models' or 'processing'
+    prefix: '' for models, 'processing_' for strategies
+    name_id: the ID from your YAML (e.g., 'feat_mlp')
+    class_name: 'Model' or 'Strategy'
+    """
+    module_path = f"{folder}.{prefix}{name_id}"
+    try:
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    except (ImportError, AttributeError) as e:
+        raise ImportError(f"❌ Error: Could not find '{class_name}' in {module_path}.py. {e}")
+
+@hydra.main(version_base=None, config_path="config", config_name="config")
 def train(cfg: DictConfig):
-    # Setup MLflow local tracking
+    # Setup MLflow Tracking
     mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
     mlflow.set_experiment(cfg.experiment_name)
     
-    # Device management (GPU/CPU)
-    device = torch.device("cuda" if torch.cuda.is_available() and cfg.use_gpu else "cpu")
+    # Use training config for device management
+    device = torch.device("cuda" if torch.cuda.is_available() and cfg.training.use_gpu else "cpu")
 
-    # --- RESUME LOGIC ---
-    # Check if we are continuing an existing experiment or starting fresh
+    # Resume Logic
     resume_id = cfg.get("resume_run_id", None)
+    model_name_id = cfg.models.name_id 
     
-    # Start MLflow session. If run_id is provided, it enters "Update" mode.
-    with mlflow.start_run(run_id=resume_id, run_name=cfg.model.name) as run:
+    with mlflow.start_run(run_id=resume_id, run_name=cfg.models.name) as run:
         if resume_id:
-            print(f"🔄 Resuming training for Run ID: {resume_id}")
-            
-            # 1. Load the original Scaler used in the previous session
-            # This is critical to ensure data distribution remains consistent
+            print(f"🔄 Resuming Run: {resume_id}")
             scaler_path = mlflow.get_artifact_uri("scaler.pkl").replace("file://", "")
             scaler = joblib.load(scaler_path)
-            
-            # 2. Load the previous model weights and architecture
             model_uri = f"runs:/{resume_id}/model"
             model = mlflow.pytorch.load_model(model_uri).to(device)
-            
-            # Extract input dimension from the first layer of the loaded network
-            input_dim = model.net[0].in_features
         else:
-            print(f"🚀 Starting NEW Training: {cfg.model.name}")
-            scaler = None # A new scaler will be fitted during data loading
+            print(f"🚀 Starting NEW Training: {cfg.models.name}")
+            scaler = None 
             model = None
 
-        # --- PROCESSING STRATEGY ---
-        # Apply the Hu Moments extraction logic to the raw Parquet data
-        strategy = HuMomentsStrategy()
-        df_train = strategy.transform(
+        # --- DYNAMIC DATA PROCESSING ---
+        # Look for processing/processing_{model_name_id}.py
+        StrategyClass = get_dynamic_class("processing", "processing_", model_name_id, "Strategy")
+        strategy = StrategyClass()
+        
+        df_processed = strategy.transform(
             evtac_path=cfg.data.evtac, 
             markers_path=cfg.data.markers, 
             opti_path=cfg.data.opti
         )
 
-        # 3. Data Preparation
-        # create_loaders handles splitting and normalization. 
-        # We pass the existing_scaler to maintain consistency if resuming.
-        train_loader, val_loader, test_loader, scaler, input_dim_data = create_loaders(
-            df_train, 
+        # Automatically detect targets and prepare loaders
+        train_loader, val_loader, _, scaler, input_dim, output_dim = create_loaders(
+            df_processed, 
             batch_size=cfg.training.batch_size,
             existing_scaler=scaler 
         )
 
-        # 4. Model Initialization
+        # --- DYNAMIC MODEL INITIALIZATION ---
         if model is None:
-            # First time training: initialize weights and log the new scaler
-            model = TactileMLP(
-                input_dim=input_dim_data, 
-                hidden_layers=cfg.model.layers,
-                dropout=cfg.model.dropout
+            # Look for models/{model_name_id}.py
+            ModelClass = get_dynamic_class("models", "", model_name_id, "Model")
+            
+            model = ModelClass(
+                input_dim=input_dim, 
+                output_dim=output_dim,
+                cfg=cfg.models 
             ).to(device)
             
-            # Save scaler locally then log to MLflow as an artifact
+            # Save artifacts for this new run
             joblib.dump(scaler, "scaler.pkl")
             mlflow.log_artifact("scaler.pkl")
 
-        # 5. Execution: The Training Loop
-        # This function should handle loss calculation, backprop, and validation
-        # run_training_loop is imported from your utils/trainer.py
+        # --- TRAINING ENGINE ---
+        # All training logic is handled in the trainer utility
         best_model = run_training_loop(model, train_loader, val_loader, cfg, device)
-
-        # 6. Save Progress
-        # Persist the best version of the model back to MLflow
-        mlflow.pytorch.log_model(best_model, "model")
         
+        # Log the final best model to MLflow
+        mlflow.pytorch.log_model(best_model, "model")
         print(f"✅ Process finished. Run ID: {run.info.run_id}")
 
 if __name__ == "__main__":
