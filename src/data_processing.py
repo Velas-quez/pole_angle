@@ -266,14 +266,14 @@ def extract_and_prepare_parquet(
 
 if __name__ == "__main__":
     extract_and_prepare_parquet(
-        # "data/train/preprocessed/evtac.parquet",
-        # "data/train/preprocessed/markers.parquet",
-        # "data/train/preprocessed/optitrack.parquet",
-        "data/test/preprocessed/evtac2.parquet",
-        "data/test/preprocessed/markers2_fixed.parquet",
-        "data/test/preprocessed/optitrack2_fixed.parquet",
+        "data/train/preprocessed/evtac.parquet",
+        "data/train/preprocessed/markers.parquet",
+        "data/train/preprocessed/optitrack.parquet",
+        # "data/test/preprocessed/evtac2.parquet",
+        # "data/test/preprocessed/markers2_fixed.parquet",
+        # "data/test/preprocessed/optitrack2_fixed.parquet",
         quad_width=0.25,
         quad_height=0.25,
-        # output_name="data/train/final_training_data_4quads.parquet",
-        output_name="data/test/final_test_data_8quads.parquet",
+        output_name="data/train/final_training_data_16quads.parquet",
+        # output_name="data/test/final_test_data_8quads.parquet",
     )
