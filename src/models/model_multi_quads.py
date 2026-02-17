@@ -28,19 +28,6 @@ PARAMS = {
 }
 
 
-# --- 1. Dataset Class ---
-class TactileDataset(Dataset):
-    def __init__(self, features, targets):
-        self.features = torch.tensor(features, dtype=torch.float32)
-        self.targets = torch.tensor(targets, dtype=torch.float32)
-
-    def __len__(self):
-        return len(self.features)
-
-    def __getitem__(self, idx):
-        return self.features[idx], self.targets[idx]
-
-
 # --- 2. Model Definition with L2 Normalization ---
 class TactileMLP(nn.Module):
     def __init__(self, input_size: int):
