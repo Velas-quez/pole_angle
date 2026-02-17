@@ -1,8 +1,9 @@
-import pandas as pd
+from typing import List
+
 import numpy as np
-from scipy.spatial.transform import Rotation as R
+import pandas as pd
 from scipy.interpolate import interp1d
-from typing import Tuple, List, Dict, Any
+from scipy.spatial.transform import Rotation as R
 
 
 def get_event_hu_moments(x_coords: np.ndarray, y_coords: np.ndarray) -> np.ndarray:
@@ -23,8 +24,8 @@ def get_event_hu_moments(x_coords: np.ndarray, y_coords: np.ndarray) -> np.ndarr
         np.sum(dx * (dy**2)),
     )
 
-    inv_m00_2 = 1.0 / (float(n_events) ** 2)
-    inv_m00_2_5 = 1.0 / (float(n_events) ** 2.5)
+    inv_m00_2 = 1.0 / (float(n_events) ** 2 + 1e-7)
+    inv_m00_2_5 = 1.0 / (float(n_events) ** 2.5 + 1e-7)
 
     e20, e02, e11 = mu20 * inv_m00_2, mu02 * inv_m00_2, mu11 * inv_m00_2
     e30, e03, e21, e12 = (
@@ -52,187 +53,227 @@ def get_event_hu_moments(x_coords: np.ndarray, y_coords: np.ndarray) -> np.ndarr
     return -1 * np.sign(moments) * np.log10(np.abs(moments) + 1e-7)
 
 
-def process_single_evtac_row(row: pd.Series) -> List[float]:
-    """Reconstructs 2D coordinates from sparse indices and calculates row statistics."""
+def process_single_evtac_row(row: pd.Series, quad_w: int, quad_h: int) -> List[float]:
+    """Calculates statistics for each quadrant of the EveTac sensor."""
     indices: np.ndarray = np.array(row["indices"])
     values: np.ndarray = np.array(row["values"])
-    width = row["width"]
+    width, height = row["width"], row["height"]
 
-    # Reconstruct 2D coordinates from 1D flat indices
-    y_coords: np.ndarray = indices // width
-    x_coords: np.ndarray = indices % width
+    y_coords_all: np.ndarray = indices // width
+    x_coords_all: np.ndarray = indices % width
 
-    # Separate polarities (255 = positive, 0 = negative)
-    pos_mask: np.ndarray = values == 255
-    neg_mask: np.ndarray = values == 0
+    all_stats = [row["timestamp"]]
 
-    # Base spatial features
-    stats = [
-        row["timestamp"],
-        np.mean(x_coords),
-        np.mean(x_coords[pos_mask]) if any(pos_mask) else 0.0,
-        np.mean(x_coords[neg_mask]) if any(neg_mask) else 0.0,
-        np.mean(y_coords),
-        np.mean(y_coords[pos_mask]) if any(pos_mask) else 0.0,
-        np.mean(y_coords[neg_mask]) if any(neg_mask) else 0.0,
-        np.var(x_coords),
-        np.var(y_coords),
-        float(np.sum(pos_mask)),
-        float(np.sum(neg_mask)),
-    ]
+    for y_start in range(0, height, quad_h):
+        for x_start in range(0, width, quad_w):
+            in_quad = (
+                (x_coords_all >= x_start)
+                & (x_coords_all < x_start + quad_w)
+                & (y_coords_all >= y_start)
+                & (y_coords_all < y_start + quad_h)
+            )
 
-    # Append Hu Moments for both polarities
-    stats.extend(get_event_hu_moments(x_coords[pos_mask], y_coords[pos_mask]).tolist())
-    stats.extend(get_event_hu_moments(x_coords[neg_mask], y_coords[neg_mask]).tolist())
+            x_q, y_q, v_q = (
+                x_coords_all[in_quad],
+                y_coords_all[in_quad],
+                values[in_quad],
+            )
+            pos_mask, neg_mask = v_q == 255, v_q == 0
 
-    return stats
+            quad_feats = [
+                np.mean(x_q) if len(x_q) > 0 else 0.0,
+                np.mean(y_q) if len(y_q) > 0 else 0.0,
+                np.var(x_q) if len(x_q) > 0 else 0.0,
+                np.var(y_q) if len(y_q) > 0 else 0.0,
+                float(np.sum(pos_mask)),
+                float(np.sum(neg_mask)),
+            ]
+
+            quad_feats.extend(
+                get_event_hu_moments(x_q[pos_mask], y_q[pos_mask]).tolist()
+            )
+            quad_feats.extend(
+                get_event_hu_moments(x_q[neg_mask], y_q[neg_mask]).tolist()
+            )
+            all_stats.extend(quad_feats)
+
+    return all_stats
 
 
 def estimate_pole_vector_from_row(row: pd.Series) -> np.ndarray:
-    """Extracts the principal axis of pole markers via SVD."""
     pts: np.ndarray = np.array(row["markers"]).reshape(-1, 3)
     if len(pts) < 2:
-        return np.array([row["timestamp"], 0.0, 0.0, 1.0])  # Default Z-up
+        return np.array([row["timestamp"], 0.0, 0.0, 1.0])
 
     centered: np.ndarray = pts - np.mean(pts, axis=0)
     _, _, Vh = np.linalg.svd(centered)
     vec: np.ndarray = Vh[0]
-
     if vec[2] < 0:
-        vec = -vec  # Ensure vector points towards Z+
+        vec = -vec
     return np.array([row["timestamp"], vec[0], vec[1], vec[2]])
-
-
-def transform_to_relative_angles(
-    v_world: np.ndarray, q_base: np.ndarray
-) -> Tuple[float, float]:
-    """Transforms world vector to base local frame and returns Roll/Pitch."""
-    r_base: R = R.from_quat(q_base)
-    # v_local = R_inv * v_world
-    v_local: np.ndarray = r_base.inv().apply(v_world)
-    v_local /= np.linalg.norm(v_local)
-
-    # Pitch: Elevation angle relative to the Z-axis (arccos returns 0 to PI)
-    pitch_rad: float = np.arccos(np.clip(v_local[2], -1.0, 1.0))
-    # Roll: Azimuth angle in the XY plane (arctan2 returns -PI to PI)
-    roll_rad: float = np.arctan2(v_local[1], v_local[0])
-
-    # Convert to degrees
-    pitch_deg: float = float(np.degrees(pitch_rad))
-    roll_deg: float = float(np.degrees(roll_rad))
-
-    # Force Roll to [0, 360] range
-    roll_deg = roll_deg % 360
-
-    return roll_deg, pitch_deg
 
 
 def extract_and_prepare_parquet(
     evtac_path: str,
     markers_path: str,
     opti_path: str,
-    output_name: str = "final_test_data.parquet",
+    quad_width: float,
+    quad_height: float,
+    output_name: str = "final_training_data.parquet",
 ) -> None:
-    """Main pipeline to synchronize and process pre-processed Parquet files."""
-
     # 1. Load Data
-    df_evtac: pd.DataFrame = pd.read_parquet(evtac_path)
-    df_markers: pd.DataFrame = pd.read_parquet(markers_path)
-    df_opti: pd.DataFrame = pd.read_parquet(opti_path)
+    df_evtac_full = pd.read_parquet(evtac_path)
+    df_markers_full = pd.read_parquet(markers_path)
+    df_opti_full = pd.read_parquet(opti_path)
 
-    # --- NOVO: Corte de 2 segundos (Início e Fim) ---
-    # Pegamos o tempo global baseado no arquivo de eventos (evtac)
-    t_start = df_evtac["timestamp"].min() + 2.0
-    t_end = df_evtac["timestamp"].max() - 2.0
+    for df in [df_evtac_full, df_markers_full, df_opti_full]:
+        df.rename(inplace=True, columns={"bagfile": "bag_name"})
 
-    # Filtramos todos os DataFrames para ficarem no mesmo intervalo
-    df_evtac = df_evtac[
-        (df_evtac["timestamp"] >= t_start) & (df_evtac["timestamp"] <= t_end)
-    ]
-    df_markers = df_markers[
-        (df_markers["timestamp"] >= t_start) & (df_markers["timestamp"] <= t_end)
-    ]
-    df_opti = df_opti[
-        (df_opti["timestamp"] >= t_start) & (df_opti["timestamp"] <= t_end)
-    ]
-    # ------------------------------------------------
+    sensor_w = int(df_evtac_full.iloc[0]["width"])
+    sensor_h = int(df_evtac_full.iloc[0]["height"])
+    qw = int(quad_width) if quad_width >= 1 else int(sensor_w * quad_width)
+    qh = int(quad_height) if quad_height >= 1 else int(sensor_h * quad_height)
 
-    # 2. Process Evtac Features
-    processed_evtac: List[List[float]] = [
-        process_single_evtac_row(row)
-        for _, row in df_evtac.iterrows()
-        if row["nnz"] > 10
-    ]
-    evtac_feat_arr: np.ndarray = np.array(processed_evtac)
+    all_episodes_results = []
+    bags = [b for b in df_evtac_full["bag_name"].unique() if pd.notna(b)]
+    print(f"Iniciando processamento de {len(bags)} episódios sem Slerp...")
 
-    # 3. Process Marker Vectors
-    processed_markers: List[np.ndarray] = [
-        estimate_pole_vector_from_row(row) for _, row in df_markers.iterrows()
-    ]
-    marker_vec_arr: np.ndarray = np.array(processed_markers)
+    for bag in bags:
+        print(f"-> Processando bag: {bag}")
+        df_evtac = df_evtac_full[df_evtac_full["bag_name"] == bag].copy()
+        df_markers = df_markers_full[df_markers_full["bag_name"] == bag].copy()
+        df_opti = df_opti_full[df_opti_full["bag_name"] == bag].copy()
 
-    # 4. Interpolation and Synchronization
-    # Convert nested dict 'orientation' to numpy [qx, qy, qz, qw]
-    base_quats: np.ndarray = np.array(
-        [[d["x"], d["y"], d["z"], d["w"]] for d in df_opti["orientation"]]
-    )
+        if df_opti.empty or df_evtac.empty:
+            continue
 
-    f_base_q = interp1d(
-        df_opti["timestamp"],
-        base_quats,
-        axis=0,
-        fill_value="extrapolate",  # type: ignore
-    )
-    f_marker_v = interp1d(
-        marker_vec_arr[:, 0],
-        marker_vec_arr[:, 1:],
-        axis=0,
-        fill_value="extrapolate",  # type: ignore
-    )
+        # Time Crop (2s)
+        t_start = (
+            max(
+                df_evtac["timestamp"].min(),
+                df_markers["timestamp"].min(),
+                df_opti["timestamp"].min(),
+            )
+            + 2.0
+        )
+        t_end = (
+            min(
+                df_evtac["timestamp"].max(),
+                df_markers["timestamp"].max(),
+                df_opti["timestamp"].max(),
+            )
+            - 2.0
+        )
 
-    target_timestamps: np.ndarray = evtac_feat_arr[:, 0]
-    sync_q_base: np.ndarray = f_base_q(target_timestamps)
-    sync_v_world: np.ndarray = f_marker_v(target_timestamps)
+        if t_start >= t_end:
+            continue
 
-    # 5. Transform and Generate Final Targets
-    final_targets: List[Tuple[float, float]] = []
-    base_eulers: List[np.ndarray] = []
+        mask_fn = lambda df: df[
+            (df["timestamp"] >= t_start) & (df["timestamp"] <= t_end)
+        ]
+        df_evtac, df_markers, df_opti = (
+            mask_fn(df_evtac),
+            mask_fn(df_markers),
+            mask_fn(df_opti),
+        )
 
-    for i in range(len(target_timestamps)):
-        r, p = transform_to_relative_angles(sync_v_world[i], sync_q_base[i])
-        final_targets.append((r, p))
-        base_eulers.append(R.from_quat(sync_q_base[i]).as_euler("xyz", degrees=True))
+        # 3. Processamento de Features (Evtac)
+        processed_evtac = [
+            process_single_evtac_row(row, qw, qh)
+            for _, row in df_evtac.iterrows()
+            if row["nnz"] > 10
+        ]
+        if not processed_evtac:
+            continue
+        evtac_feat_arr = np.array(processed_evtac)
+        target_timestamps = evtac_feat_arr[:, 0]
 
-    # 6. Assemble and Export
-    cols: List[str] = [
-        "mu_x",
-        "mu_x_pos",
-        "mu_x_neg",
-        "mu_y",
-        "mu_y_pos",
-        "mu_y_neg",
-        "var_x",
-        "var_y",
-        "n_pos",
-        "n_neg",
-    ]
-    cols += [f"hu_pos_{i}" for i in range(7)] + [f"hu_neg_{i}" for i in range(7)]
+        # 4. Processamento de Marcadores (Pole Vector)
+        processed_markers = [
+            estimate_pole_vector_from_row(row) for _, row in df_markers.iterrows()
+        ]
+        marker_vec_arr = np.array(processed_markers)
+        _, u_idx = np.unique(marker_vec_arr[:, 0], return_index=True)
+        marker_vec_arr = marker_vec_arr[u_idx]
 
-    df_final: pd.DataFrame = pd.DataFrame(evtac_feat_arr[:, 1:], columns=cols)
-    df_final[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
-    df_final[["target_roll", "target_pitch"]] = np.array(final_targets)
+        # 5. INTERPOLAÇÃO SEM SLERP (Usando interp1d com extrapolação para tudo)
+        df_opti = df_opti.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
+        base_quats = np.array(
+            [[d["x"], d["y"], d["z"], d["w"]] for d in df_opti["orientation"]]
+        )
 
-    df_final.to_parquet(output_name, index=False)
-    print(f"Final Parquet created: {output_name} with {len(df_final)} rows.")
+        # Interpolação dos Quaternions (Linear)
+        f_quat = interp1d(
+            df_opti["timestamp"].values, base_quats, axis=0, fill_value="extrapolate"
+        )
+        interp_quats = f_quat(target_timestamps)
+
+        # NORMALIZAÇÃO MANUAL: Essencial após interpolação linear de quaternions
+        norms = np.linalg.norm(interp_quats, axis=1, keepdims=True)
+        interp_quats = interp_quats / (norms + 1e-9)
+
+        # Converte para objetos de rotação do SciPy
+        sync_rots_base = R.from_quat(interp_quats)
+
+        # Interpolação dos Marcadores
+        f_marker_v = interp1d(
+            marker_vec_arr[:, 0],
+            marker_vec_arr[:, 1:],
+            axis=0,
+            fill_value="extrapolate",
+        )
+        sync_v_world = f_marker_v(target_timestamps)
+
+        # 6. Transformação para Vetor Unitário Local
+        final_vec_targets, base_eulers = [], []
+        for i in range(len(target_timestamps)):
+            v_local = sync_rots_base[i].inv().apply(sync_v_world[i])
+            v_unit = v_local / (np.linalg.norm(v_local) + 1e-7)
+            final_vec_targets.append(v_unit)
+            base_eulers.append(sync_rots_base[i].as_euler("xyz", degrees=True))
+
+        # 7. Colunas e DataFrame
+        n_qx, n_qy = sensor_w // qw, sensor_h // qh
+        cols = []
+        for qy in range(n_qy):
+            for qx in range(n_qx):
+                s = f"q_{qx}_{qy}"
+                cols += [
+                    f"mu_x_{s}",
+                    f"mu_y_{s}",
+                    f"var_x_{s}",
+                    f"var_y_{s}",
+                    f"n_pos_{s}",
+                    f"n_neg_{s}",
+                ]
+                cols += [f"hu_pos_{i}_{s}" for i in range(7)] + [
+                    f"hu_neg_{i}_{s}" for i in range(7)
+                ]
+
+        df_bag = pd.DataFrame(evtac_feat_arr[:, 1:], columns=cols)
+        df_bag[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
+        df_bag[["target_x", "target_y", "target_z"]] = np.array(final_vec_targets)
+        df_bag["source_bag"] = bag
+        all_episodes_results.append(df_bag)
+
+    if all_episodes_results:
+        df_final = pd.concat(all_episodes_results, ignore_index=True)
+        df_final.to_parquet(output_name, index=False)
+        print(f"\nFinal Parquet criado com sucesso: {output_name}")
+    else:
+        print("Nenhum dado processado.")
 
 
 if __name__ == "__main__":
-    # Example execution:
-
-    print("Starting data processing...")
     extract_and_prepare_parquet(
-        "data/test/preprocessed/evtac.parquet",
-        "data/test/preprocessed/markers.parquet",
-        "data/test/preprocessed/optitrack.parquet",
+        # "data/train/preprocessed/evtac.parquet",
+        # "data/train/preprocessed/markers.parquet",
+        # "data/train/preprocessed/optitrack.parquet",
+        "data/test/preprocessed/evtac2.parquet",
+        "data/test/preprocessed/markers2_fixed.parquet",
+        "data/test/preprocessed/optitrack2_fixed.parquet",
+        quad_width=0.25,
+        quad_height=0.25,
+        # output_name="data/train/final_training_data_4quads.parquet",
+        output_name="data/test/final_test_data_8quads.parquet",
     )
-    pass
