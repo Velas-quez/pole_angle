@@ -20,9 +20,12 @@ from ebs_custom_msgs.msg import EBInt16
 from ebs_custom_msgs.msg import EBInt8
 from ebs_custom_msgs.msg import EBTimestamp
 from ebs_custom_msgs.msg import EvetacMsg
+# from ebs_custom_msgs.msg import EBDims
+# from ebs_custom_msgs.msg import EBCOO
 from sys import exit
 from std_srvs.srv import Trigger, TriggerResponse
 from sensor_msgs.msg import Image as SensorImage
+
 
 from ebvision.utils import GenerateImageOnnx, DotTrackOnnx
 
@@ -252,6 +255,7 @@ class CameraProcessor:
     def callback_events(self, event_interval, event_slice):
 
         start = time.time()
+        timestamp = rospy.Time.now()
         self.iter_counter += 1
         # reset iter_counter when both modulos would be active anyways
         if (self.iter_counter == 256*1000):
@@ -280,6 +284,7 @@ class CameraProcessor:
         events_numpy = event_slice.numpy()
 
         if (len(events_numpy['x'])>0):
+            # coords = list(map(EBCOO, events_numpy['x'], events_numpy['y'], events_numpy['polarity']))
             self.pic = self.image_generator.generate_image(events_numpy['x'], events_numpy['y'], events_numpy['polarity'])
 
             #TODO
@@ -295,16 +300,20 @@ class CameraProcessor:
                         pass
                 # print ("tracking took: ", time.time()-start)
         else:
+            # pass
             self.pic[:] = 127
+            # coords = []
         
         num_eventos = (self.pic != 127).sum()
         print(f"Total de pontos ativos: {num_eventos}")
+        print(f"Tamanho da imagem: {self.pic.shape}")
+        print(f"Value of active pixels: {self.pic[self.pic != 127]}")
 
         if not rospy.is_shutdown():
             local_counter = np.int8((self.iter_counter%256)-128)
 
             msg = EvetacMsg()
-            msg.header.stamp = rospy.Time.now()
+            msg.header.stamp = timestamp
 
             msg.image = SensorImage()
             msg.image.height = 640
@@ -313,10 +322,15 @@ class CameraProcessor:
             msg.image.is_bigendian = False
             msg.image.step = 480
             msg.image.data = self.pic.tobytes()
+            # msg.dims = EBDims(rows = 640,cols = 480)
+            # msg.coords = coords
 
             msg.local_counter = local_counter
 
             msg.centers = self.dot_locations.reshape(-1,order='F')
+            # msg.events_x = events_numpy['x'].tolist()
+            # msg.events_y = events_numpy['y'].tolist()
+            # msg.events_polarity = events_numpy['polarity'].tolist()
 
             self.pub_evetac_msg.publish(msg)
 

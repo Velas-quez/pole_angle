@@ -10,3 +10,4 @@ mlruns/
 .venv/
 preprocessing/
 .session.vim
+/.vscode
