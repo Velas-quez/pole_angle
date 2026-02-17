@@ -64,3 +64,70 @@ train_loader, val_loader, _, scaler, input_dim = create_loaders(
 - **Hardware Handling**  
   Automatically moves model and data to GPU (CUDA) or CPU based on environment.
 
+🛠️ **Configuration (Hydra + YAML)**
+
+Uses **Hydra** for clean, code-free hyperparameter and experiment management.
+
+**Structure**
+
+- `conf/config.yaml`  
+  Main file – sets defaults and global settings
+
+- `conf/models/`  
+  One file per model architecture (e.g. `feat_mlp.yaml`, `multi_quads.yaml`)
+
+**How It Works**
+
+1. **Main config.yaml** (orchestrator)
+
+```yaml
+defaults:
+  - _self_
+  - models: feat_mlp           # ← selects model sub-config
+
+experiment_name: "Tactile_Balance_v1"
+
+training:
+  batch_size: 128
+  lr: 0.001
+  epochs: 200
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+```
+
+2. **Model sub-config** (example: `feat_mlp.yaml`)
+
+```yaml
+name: "Tactile MLP"
+name_id: "feat_mlp"           # must match models/feat_mlp.py
+layers: [128, 64, 32]
+dropout: 0.1
+```
+
+**Quick Commands**
+
+Run default settings  
+```bash
+python train.py
+```
+
+Switch model  
+```bash
+python train.py models=multi_quads
+```
+
+Override any value  
+```bash
+python train.py training.lr=0.0005 training.batch_size=64 model.dropout=0.3
+```
+
+Resume existing MLflow run  
+```bash
+python train.py resume_run_id="abc123..."
+```
+
+**Best Practices**
+
+- Keep model-specific settings only in `conf/models/*.yaml`
+- Keep training / paths / globals in `config.yaml`
+- Make sure `name_id` matches the model filename

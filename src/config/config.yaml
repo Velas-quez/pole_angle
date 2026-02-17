@@ -1,0 +1,22 @@
+# conf/config.yaml
+
+defaults:
+  - _self_
+  - models: feat_mlp  # This points to conf/models/feat_mlp.yaml
+
+experiment_name: "Pole_Balancing_MLP_v1"
+use_gpu: true
+resume_run_id: null
+
+data:
+  evtac: "data/raw/evtac.parquet"
+  markers: "data/raw/markers.parquet"
+  opti: "data/raw/optitrack.parquet"
+
+training:
+  batch_size: 128
+  lr: 0.01
+  epochs: 200
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+  use_gpu: true # Replaces the 'cuda' if check in code
