@@ -131,3 +131,40 @@ python train.py resume_run_id="abc123..."
 - Keep model-specific settings only in `conf/models/*.yaml`
 - Keep training / paths / globals in `config.yaml`
 - Make sure `name_id` matches the model filename
+
+
+🏗️ **Experiment Orchestrator** (`train.py`)
+
+Central script that coordinates the full training workflow.
+
+**Core Responsibilities**
+
+- Dynamically loads model and processing strategy using `name_id` from Hydra config  
+
+- Manages local MLflow tracking (`file://./mlruns`)  
+  Groups runs under `experiment_name` from YAML
+
+- Supports resuming runs via `resume_run_id`:  
+  • Restores best model weights  
+  • Reloads exact same StandardScaler (prevents distribution shift)
+
+- Auto-detects input/output dimensions from processed data:  
+  • `input_dim` ← feature columns  
+  • `output_dim` ← count of `target*` columns
+
+**Execution Flow (simplified)**
+
+1. Hydra config → merged settings  
+2. Start MLflow run  
+3. Load & process Parquet → clean DataFrame  
+4. Create train/val loaders (80/20 sequential split + scaling)  
+5. Build new model or load checkpoint  
+6. Run training via `trainer.py`  
+7. Save scaler + best weights as MLflow artifacts
+
+**Quick tip**  
+Run `mlflow ui` in terminal to visualize all runs and loss curves.
+
+```bash
+mlflow ui
+```
