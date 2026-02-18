@@ -138,9 +138,9 @@ def _collect_markers_rows(
                 continue
 
             yield {
-                "timestamp": msg.header.stamp.to_sec()
-                if hasattr(msg, "header")
-                else t.to_sec(),
+                "timestamp": (
+                    msg.header.stamp.to_sec() if hasattr(msg, "header") else t.to_sec()
+                ),
                 "bag_name": bag_name,
                 "markers": list(data),
             }

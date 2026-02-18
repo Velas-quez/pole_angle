@@ -189,4 +189,3 @@ if __name__ == "__main__":
         print(f"Roll Avg Error:  {final_roll_err:.4f}°")
         print(f"Pitch Avg Error: {final_pitch_err:.4f}°")
         print("=" * 30)
-

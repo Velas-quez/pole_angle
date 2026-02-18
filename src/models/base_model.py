@@ -28,6 +28,7 @@ class BaseTactileModel(ABC):
         """Deve retornar a arquitetura PyTorch."""
         pass
 
+    @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Encaminha os dados pelo modelo. Pode ser sobrescrito para lógica customizada."""
         return self.model(x)
