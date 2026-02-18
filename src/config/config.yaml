@@ -15,8 +15,17 @@ data:
 
 training:
   batch_size: 128
-  lr: 0.01
   epochs: 200
-  scheduler_patience: 5
-  scheduler_factor: 0.5
   use_gpu: true # Replaces the 'cuda' if check in code
+  optimizer:
+    _target_: torch.optim.AdamW # Optimizer: AdamW
+    lr: 0.001                 # Learning rate
+    weight_decay: 0.01        # Regularization factor
+  criterion:
+    _target_: torch.nn.CosineEmbeddingLoss # Loss function: CosineEmbeddingLoss
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: 'min'      # Queremos que o LR caia quando a loss parar de diminuir
+    factor: 0.5      # Corta o LR pela metade
+    patience: 10     # Espera 10 épocas sem melhora
+    verbose: true

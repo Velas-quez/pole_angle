@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
+import pandas as pd
+from typing import Tuple
 
 
 class TactileDataset(Dataset):
@@ -15,6 +17,22 @@ class TactileDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
+
+
+def load_parquet_files(*file_paths: str) -> Tuple[pd.DataFrame]:
+    """
+    Load all parquets and return them as a tuple of DataFrames.
+    """
+    dataframes = []
+    for path in file_paths:
+        try:
+            df = pd.read_parquet(path)
+            dataframes.append(df)
+            print(f"✅ Loaded: {path} with shape {df.shape}")
+        except Exception as e:
+            print(f"❌ Error loading {path}: {e}")
+            raise e
+    return tuple(dataframes)
 
 
 def create_loaders(df, batch_size=128, existing_scaler=None):
