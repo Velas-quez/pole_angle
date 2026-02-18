@@ -1,0 +1,3 @@
+models:
+  multi_quads: statistical_multi_quads
+  feat_mlp: statistical_multi_quads
