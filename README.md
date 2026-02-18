@@ -132,6 +132,46 @@ python train.py resume_run_id="abc123..."
 - Keep training / paths / globals in `config.yaml`
 - Make sure `name_id` matches the model filename
 
+## 🧩 **Processing (Strategies + CLI)**
+
+Processing is centralized in `src/processing/` and is used in two ways:
+
+- **Training pipeline**: `train.py` loads the processing **Strategy** based on the model name (`name_id`) and calls `Strategy.transform(...)` to produce the processed DataFrame.
+- **CLI processing**: `processing_cli.py` runs the same Strategy from the terminal and writes a Parquet output.
+
+**Where the mapping lives**
+
+The file `src/processing/config.yaml` defines the mapping of model → processing algorithm:
+
+```yaml
+models:
+  feat_mlp: statistical_multi_quads
+  multi_quads: statistical_multi_quads
+```
+
+**How strategies are loaded**
+
+`src/processing/config.py` provides helpers:
+
+- `load_model_map()` reads the YAML mapping.
+- `get_model_strategy(model_name, **kwargs)` returns a `Strategy` instance.
+
+**Strategy contract**
+
+All processing algorithms live under `src/processing/algorithms/` and must expose:
+
+- `class Strategy(BaseStrategy)` with `transform(evtac_path, markers_path, opti_path, output_path=None)`.
+
+If `output_path` is provided, the strategy will save the parquet; otherwise it just returns the DataFrame.
+
+**CLI example**
+
+```bash
+python src/processing_cli.py --model feat_mlp --input-path data/raw \
+  --quad-width 0.25 --quad-height 0.25 \
+  --output-path data/processed/processed.parquet
+```
+
 
 ## 🏗️ **Experiment Orchestrator** (`train.py`)
 
