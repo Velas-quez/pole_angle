@@ -9,9 +9,11 @@ use_gpu: true
 resume_run_id: null
 
 data:
-  evtac: "data/raw/evtac.parquet"
-  markers: "data/raw/markers.parquet"
-  opti: "data/raw/optitrack.parquet"
+  evtac: "data/pre_processed_data/evtac.parquet"
+  markers: "data/pre_processed_data/markers.parquet"
+  opti: "data/pre_processed_data/optitrack.parquet"
+
+processed_data_folder: "data/processed_data/"
 
 training:
   batch_size: 128

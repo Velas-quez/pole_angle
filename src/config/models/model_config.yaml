@@ -10,3 +10,5 @@ net_params:
   num_layers: 4            # Number of layers
   neurons: [256, 128, 64, 32] # List of neurons per layer, length matches num_layers
 
+strategy:
+  _target_: src.processing.strategies.statistical_multi_quads.Strategy

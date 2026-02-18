@@ -8,7 +8,7 @@ from omegaconf import DictConfig
 from src.utils.create_loaders import create_loaders, load_parquet_files
 
 # Core utility imports
-from utils.dataloader import create_loaders
+from utils.create_loaders import create_loaders
 from utils.trainer import run_training_loop
 from src.models import (
     BaseTactileModel,
