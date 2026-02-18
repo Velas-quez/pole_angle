@@ -1,6 +1,7 @@
 # Hydra configuration for TactileMLP parameters with _target_
+_target_: src.model.TactileMLPVector
 
-model:
+net_params:
   activation:
     _target_: torch.nn.ReLU # Example: torch.nn.ReLU, torch.nn.SiLU
   dropout: 0.1             # Dropout rate
