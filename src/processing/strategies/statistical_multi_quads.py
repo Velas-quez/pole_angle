@@ -1,9 +1,17 @@
-from typing import List
+from __future__ import annotations
+
+from typing import List, Optional
+
+import importlib.util
+from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
+
+from ..base_processing import BaseStrategy
 
 
 def get_event_hu_moments(x_coords: np.ndarray, y_coords: np.ndarray) -> np.ndarray:
@@ -82,9 +90,9 @@ def process_single_evtac_row(row: pd.Series, quad_w: int, quad_h: int) -> List[f
 
             quad_feats = [
                 np.mean(x_q) if len(x_q) > 0 else 0.0,
-                np.mean(y_q) if len(y_q) > 0 else 0.0,
+                np.mean(y_q) if len(x_q) > 0 else 0.0,
                 np.var(x_q) if len(x_q) > 0 else 0.0,
-                np.var(y_q) if len(y_q) > 0 else 0.0,
+                np.var(y_q) if len(x_q) > 0 else 0.0,
                 float(np.sum(pos_mask)),
                 float(np.sum(neg_mask)),
             ]
@@ -119,8 +127,8 @@ def extract_and_prepare_parquet(
     opti_path: str,
     quad_width: float,
     quad_height: float,
-    output_name: str = "final_training_data.parquet",
-) -> None:
+    output_name: Optional[str] = None,
+) -> pd.DataFrame:
     # 1. Load Data
     df_evtac_full = pd.read_parquet(evtac_path)
     df_markers_full = pd.read_parquet(markers_path)
@@ -256,24 +264,36 @@ def extract_and_prepare_parquet(
         df_bag["source_bag"] = bag
         all_episodes_results.append(df_bag)
 
-    if all_episodes_results:
-        df_final = pd.concat(all_episodes_results, ignore_index=True)
+    if not all_episodes_results:
+        print("Nenhum dado processado.")
+        return pd.DataFrame()
+
+    df_final = pd.concat(all_episodes_results, ignore_index=True)
+
+    if output_name:
         df_final.to_parquet(output_name, index=False)
         print(f"\nFinal Parquet criado com sucesso: {output_name}")
-    else:
-        print("Nenhum dado processado.")
+
+    return df_final
 
 
-if __name__ == "__main__":
-    extract_and_prepare_parquet(
-        "data/train/preprocessed/evtac.parquet",
-        "data/train/preprocessed/markers.parquet",
-        "data/train/preprocessed/optitrack.parquet",
-        # "data/test/preprocessed/evtac2.parquet",
-        # "data/test/preprocessed/markers2_fixed.parquet",
-        # "data/test/preprocessed/optitrack2_fixed.parquet",
-        quad_width=0.25,
-        quad_height=0.25,
-        output_name="data/train/final_training_data_16quads.parquet",
-        # output_name="data/test/final_test_data_8quads.parquet",
-    )
+class Strategy(BaseStrategy):
+    def __init__(self, quad_width: float = 0.25, quad_height: float = 0.25):
+        self.quad_width = quad_width
+        self.quad_height = quad_height
+
+    def transform(
+        self,
+        evtac_path: str,
+        markers_path: str,
+        opti_path: str,
+        output_path: str | None = None,
+    ) -> pd.DataFrame:
+        return extract_and_prepare_parquet(
+            evtac_path=evtac_path,
+            markers_path=markers_path,
+            opti_path=opti_path,
+            quad_width=self.quad_width,
+            quad_height=self.quad_height,
+            output_name=output_path,
+        )
