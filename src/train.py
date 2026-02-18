@@ -1,21 +1,21 @@
 import os
-import importlib
-
 import hydra
 import joblib
 import mlflow
 import torch
+import importlib
 from omegaconf import DictConfig
+from src.utils.create_loaders import create_loaders, load_parquet_files
 
 # Core utility imports
 from utils.dataloader import create_loaders
 from utils.trainer import run_training_loop
-from processing.config import get_model_strategy
-from src.models.base_model import (
+from src.models import (
     BaseTactileModel,
 )  # Ensure this is available for type hints and as a base class
 
-def get_dynamic_class(folder, prefix, name_id, class_name) -> BaseTactileModel:
+
+def get_dynamic_class(folder, prefix, name_id, class_name):
     """
     Helper to dynamically import classes.
     folder: 'models' or 'processing'
@@ -61,14 +61,16 @@ def train(cfg: DictConfig):
             model = None
 
         # --- DYNAMIC DATA PROCESSING ---
-        strategy = get_model_strategy(model_name_id)
-        output_path = None #TODO: allow override via CLI or config (without path, parquet is not saved, only returned as DataFrame)
+        # Look for processing/processing_{model_name_id}.py
+        StrategyClass = get_dynamic_class(
+            "processing", "processing_", model_name_id, "Strategy"
+        )
+        strategy = StrategyClass()
 
         df_processed = strategy.transform(
             evtac_path=cfg.data.evtac,
             markers_path=cfg.data.markers,
             opti_path=cfg.data.opti,
-            output_path=output_path,
         )
 
         # Automatically detect targets and prepare loaders

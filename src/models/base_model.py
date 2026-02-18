@@ -1,3 +1,4 @@
+from typing import Generic, TypeVar, Type
 import torch
 import torch.nn as nn
 import mlflow
@@ -5,26 +6,35 @@ import joblib
 import hydra
 from abc import ABC, abstractmethod
 from functools import cached_property
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from sklearn.pipeline import Pipeline
 
 
-class BaseTactileModel(ABC):
-    def __init__(self, input_dim: int, output_dim: int, model_cfg: DictConfig):
+T = TypeVar("T")
+
+
+class BaseTactileModel(nn.Module, ABC, Generic[T]):
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        net_params: DictConfig,
+        params_schema: Type[T],
+    ):
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.model_cfg = model_cfg
+        self.net_params: T = OmegaConf.to_object(
+            OmegaConf.merge(params_schema, net_params)
+        )
         self.device = torch.device(
-            model_cfg.params.device if torch.cuda.is_available() else "cpu"
+            net_params.params.device if torch.cuda.is_available() else "cpu"
         )
 
         # Objetos que serão populados durante o ciclo de vida
-        self.model = self.build_model(input_dim=input_dim, output_dim=output_dim).to(
-            self.device
-        )
+        self.model = self.build_model().to(self.device)
 
     @abstractmethod
-    def build_model(self, input_dim: int, output_dim) -> nn.Module:
+    def build_model(self) -> nn.Module:
         """Deve retornar a arquitetura PyTorch."""
         pass
 
