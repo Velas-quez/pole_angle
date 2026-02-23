@@ -1,0 +1,5 @@
+
+_target_: src.processing.strategies.statistical_multi_quads_strategy.StatisticalMultiQuadsStrategy
+quad_width: 0.25
+quad_height: 0.25
+

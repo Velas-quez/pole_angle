@@ -1,76 +1,188 @@
+from __future__ import annotations
+import copy
+from dataclasses import dataclass
+from typing import TypedDict, List, Dict, Any, Optional, Callable
+
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import mlflow
-import copy
+import hydra
+from torch.utils.data import DataLoader
+from omegaconf import DictConfig
+
+from src.models.base_model import BaseTactileModel
+from src.types import TactileInput
+# --- TIPAGEM DA CONFIGURAÇÃO (Refletindo o teu config.yaml) ---
 
 
-def run_training_loop(model, train_loader, val_loader, cfg, device):
-    """Handles the optimization, scheduling, and weight updates."""
+@dataclass
+class OptimizerConfig:
+    _target_: str
+    lr: float
+    weight_decay: float
 
-    # 1. Optimizer and Loss
-    optimizer = optim.Adam(model.parameters(), lr=cfg.training.lr)
-    criterion = nn.MSELoss()
 
-    # 2. Scheduler (using your YAML params)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=cfg.training.scheduler_factor,
-        patience=cfg.training.scheduler_patience,
+@dataclass
+class SchedulerConfig:
+    _target_: str
+    mode: str
+    factor: float
+    patience: float
+    verbose: bool
+
+
+@dataclass
+class TrainingConfig:
+    batch_size: int
+    epochs: int
+    use_gpu: bool
+    optimizer: OptimizerConfig
+    criterion: Dict[str, Any]  # _target_ da Loss
+    scheduler: SchedulerConfig
+
+
+class FullTrainConfig(DictConfig):
+    """Extensão para ajudar o linter, embora o Hydra use DictConfig."""
+
+    training: TrainingConfig
+    experiment_name: str
+
+
+# --- LOOP DE TREINAMENTO ---
+
+
+def run_training_loop(
+    model: BaseTactileModel,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    cfg: FullTrainConfig,
+    device: torch.device,
+):
+    # 1. Instanciar componentes via Hydra
+    criterion = hydra.utils.instantiate(cfg.training.criterion)
+    loss_args_fn = get_loss_args_fn(criterion)
+    optimizer = hydra.utils.instantiate(
+        cfg.training.optimizer, params=model.parameters()
     )
+    # Função que converte o output (Euler ou Vetor) para Vetor Unitário 3D
+    convert_fn = hydra.utils.instantiate(cfg.targets.convert_to_vector_fn)
+
+    scheduler = hydra.utils.instantiate(cfg.training.scheduler, optimizer=optimizer)
 
     best_val_loss = float("inf")
     best_model_wts = copy.deepcopy(model.state_dict())
 
     for epoch in range(cfg.training.epochs):
-        # --- TRAINING PHASE ---
+        # --- PHASE: TRAINING ---
         model.train()
-        running_loss = 0.0
-        for inputs, targets in train_loader:
-            inputs, targets = inputs.to(device), targets.to(device)
+        train_running_loss = 0.0
+        train_running_angle = 0.0
+
+        for batch_x, batch_y in train_loader:
+            inputs: TactileInput = {k: v.to(device) for k, v in batch_x.items()}
+            targets = batch_y.to(device)
 
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+
+            # Cálculo da Loss de Otimização
+            args = loss_args_fn(outputs, targets)
+            loss = criterion(*args)
+
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item() * inputs.size(0)
+            # Cálculo da Métrica Angular (sempre em graus)
+            with torch.no_grad():
+                out_vecs = convert_fn(outputs)
+                tgt_vecs = convert_fn(targets)
+                angle_err = angle_diff_deg(out_vecs, tgt_vecs)
 
-        epoch_train_loss = running_loss / len(train_loader.dataset)
+                train_running_loss += loss.item() * targets.size(0)
+                train_running_angle += angle_err.mean().item() * targets.size(0)
 
-        # --- VALIDATION PHASE ---
+        epoch_train_loss = train_running_loss / len(train_loader.dataset)
+        epoch_train_angle = train_running_angle / len(train_loader.dataset)
+
+        # --- PHASE: VALIDATION ---
         model.eval()
-        val_loss = 0.0
+        val_running_loss = 0.0
+        val_running_angle = 0.0
+
         with torch.no_grad():
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
+            for batch_x, batch_y in val_loader:
+                inputs: TactileInput = {k: v.to(device) for k, v in batch_x.items()}
+                targets = batch_y.to(device)
+
                 outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                val_loss += loss.item() * inputs.size(0)
 
-        epoch_val_loss = val_loss / len(val_loader.dataset)
+                # Loss bruta
+                args = loss_args_fn(outputs, targets)
+                loss = criterion(*args)
 
-        # 3. Update Scheduler & Track Progress
-        scheduler.step(epoch_val_loss)
+                # Ângulo real
+                out_vecs = convert_fn(outputs)
+                tgt_vecs = convert_fn(targets)
+                angle_err = angle_diff_deg(out_vecs, tgt_vecs)
+
+                val_running_loss += loss.item() * targets.size(0)
+                val_running_angle += angle_err.mean().item() * targets.size(0)
+
+        epoch_val_loss = val_running_loss / len(val_loader.dataset)
+        epoch_val_angle = val_running_angle / len(val_loader.dataset)
+
+        # 3. Scheduler & Logging
+        if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            scheduler.step(epoch_val_loss)
+        else:
+            scheduler.step()
+
         current_lr = optimizer.param_groups[0]["lr"]
 
-        # Log to MLflow
+        # MLflow Tracking: Loss (Otimização) e Angle (Física)
         mlflow.log_metric("train_loss", epoch_train_loss, step=epoch)
+        mlflow.log_metric("train_angle_deg", epoch_train_angle, step=epoch)
         mlflow.log_metric("val_loss", epoch_val_loss, step=epoch)
+        mlflow.log_metric("val_angle_deg", epoch_val_angle, step=epoch)
         mlflow.log_metric("lr", current_lr, step=epoch)
 
-        # Checkpoint: Save the best model
+        # Checkpoint baseado na loss de validação
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             best_model_wts = copy.deepcopy(model.state_dict())
 
         if epoch % 10 == 0:
             print(
-                f"Epoch {epoch}/{cfg.training.epochs} | Train Loss: {epoch_train_loss:.4f} | Val Loss: {epoch_val_loss:.4f} | LR: {current_lr}"
+                f"Epoch {epoch} | Val Loss: {epoch_val_loss:.4f} | "
+                f"Val Angle Err: {epoch_val_angle:.2f}° | LR: {current_lr}"
             )
 
-    # Load best weights before returning
     model.load_state_dict(best_model_wts)
     return model
+
+
+# --- FUNÇÕES AUXILIARES ---
+
+
+def get_loss_args_fn(criterion: nn.Module) -> Callable:
+    if isinstance(criterion, nn.CosineEmbeddingLoss):
+        return _loss_args_with_labels
+    return _loss_args_without_labels
+
+
+def _loss_args_with_labels(outputs, targets):
+    labels = torch.ones(targets.size(0), device=outputs.device)
+    return [outputs, targets, labels]
+
+
+def _loss_args_without_labels(outputs, targets):
+    return [outputs, targets]
+
+
+def angle_diff_deg(vec1: torch.Tensor, vec2: torch.Tensor) -> torch.Tensor:
+    # Garante normalização unitária para evitar erros no acos
+    v1 = torch.nn.functional.normalize(vec1, p=2, dim=1)
+    v2 = torch.nn.functional.normalize(vec2, p=2, dim=1)
+
+    cos_sim = torch.sum(v1 * v2, dim=1).clamp(-1.0, 1.0)
+    return torch.rad2deg(torch.acos(cos_sim))

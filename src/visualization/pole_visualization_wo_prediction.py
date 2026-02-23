@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d import Axes3D
 
 # 1. Load Data
 df_test = pd.read_parquet("temp_out/final_test_data.parquet")

@@ -2,18 +2,29 @@
 
 defaults:
   - _self_
-  - models: feat_mlp  # This points to conf/models/feat_mlp.yaml
+  - models: mlp_config # This points to conf/models/feat_mlp.yaml
+  - strategies: statistical_multi_quads_strategy
+  - targets: vector 
 
-experiment_name: "Pole_Balancing_MLP_v1"
+experiment_name: "Pole_Balancing_MLP_Vector"
 use_gpu: true
 resume_run_id: null
 
 data:
-  evtac: "data/pre_processed_data/evtac.parquet"
-  markers: "data/pre_processed_data/markers.parquet"
-  opti: "data/pre_processed_data/optitrack.parquet"
+  processed_dir:
+    train:  "data/train/processed/"
+    test:  "data/test/processed/"
+  pre_processed:
+    train:
+      evtac: "data/train/preprocessed/evtac.parquet"
+      markers: "data/train/preprocessed/markers.parquet"
+      opti: "data/train/preprocessed/optitrack.parquet"
 
-processed_data_folder: "data/processed_data/"
+    test:
+      evtac: "data/test/preprocessed/evtac.parquet"
+      markers: "data/test/preprocessed/markers.parquet"
+      opti: "data/test/preprocessed/optitrack.parquet"
+
 
 training:
   batch_size: 128
@@ -21,13 +32,12 @@ training:
   use_gpu: true # Replaces the 'cuda' if check in code
   optimizer:
     _target_: torch.optim.AdamW # Optimizer: AdamW
-    lr: 0.001                 # Learning rate
-    weight_decay: 0.01        # Regularization factor
+    lr: 0.002                 # Learning rate
+    weight_decay: 0.02        # Regularization factor
   criterion:
     _target_: torch.nn.CosineEmbeddingLoss # Loss function: CosineEmbeddingLoss
   scheduler:
     _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
     mode: 'min'      # Queremos que o LR caia quando a loss parar de diminuir
     factor: 0.5      # Corta o LR pela metade
-    patience: 10     # Espera 10 épocas sem melhora
-    verbose: true
+    patience: 6     

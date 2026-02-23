@@ -1,0 +1,6 @@
+# conf/target/vector.yaml
+name: "direction_vector"
+columns: ["target_x", "target_y", "target_z"] # Nomes exatos que estão no Parquet
+convert_to_vector_fn:
+  _target_: src.utils.metrics.identity_transform
+  _partial_: true

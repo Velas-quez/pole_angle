@@ -1,84 +1,60 @@
-from typing_extensions import Any
-import pandas as pd
-from src.models.base_model import BaseTactileModel
-import joblib
-from os.path import join as pjoin
-import numpy as np
+from typing import List, Optional, Dict, Tuple, Any
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import mlflow
-import mlflow.pytorch
-from typing import Optional, Tuple, List
 import hydra
 from omegaconf import DictConfig
-from dataclasses import dataclass
+from src.models.base_model import BaseTactileModel
+from src.types import TactileInput
+
+from typing import Callable
 
 
-# --- 0. Hyperparameters ---
-@dataclass
-class MLPParams:
-    num_layers: int
-    neurons: List[int]
-    activation: DictConfig  # Contém o _target_ para o instantiate
-    dropout: float = 0.1
-    normalization: Optional[DictConfig] = None
+class TactileMLPVector(BaseTactileModel):
+    def __init__(
+        self,
+        input_shape_dict: Dict[str, Tuple[int, ...]],
+        output_shape: Tuple[int, ...],
+        neurons: List[int],
+        activation: Callable,  # Mudado para Any porque o partial não é um DictConfig
+        dropout: float = 0.1,
+        normalization: Optional[Callable] = None,  # Mudado para Any
+    ):
+        super().__init__(input_shape_dict, output_shape)
 
+        # Cálculo das dimensões achatadas
+        self.evetac_dim: int = int(
+            torch.prod(torch.tensor(input_shape_dict["evetac"])).item()
+        )
+        self.base_dim: int = int(
+            torch.prod(torch.tensor(input_shape_dict["base"])).item()
+        )
 
-# --- 2. Model Definition with L2 Normalization ---
-class TactileMLPVector(BaseTactileModel[MLPParams]):
-    def __init__(self, input_dims: int, output_dim: int, net_params: DictConfig):
-        super().__init__(input_dims, output_dim, net_params, MLPParams)
+        total_in = self.evetac_dim + self.base_dim
+        total_out = output_shape[0]
 
-    def build_model(self) -> nn.Module:
-        """
-        Constrói a rede dinamicamente. O Neovim agora reconhece self.model_cfg
-        como uma instância de MLPParams graças ao Generics na Base.
-        """
+        # Construção da MLP
         layers = []
-        neurons = self.net_params.neurons
-        curr_in = self.input_dim
-
-        # Iitera sobre a lista de neurônios para criar as camadas ocultas
+        curr_in = total_in
         for h_dim in neurons:
-            # 1. Camada Linear
             layers.append(nn.Linear(curr_in, h_dim))
 
-            # 2. Normalização (Batch ou Layer Norm via Hydra)
-            if self.net_params.normalization is not None:
-                # Instancia o target (ex: torch.nn.BatchNorm1d) passando o tamanho da camada
-                norm_layer = hydra.utils.instantiate(
-                    self.net_params.normalization, h_dim
-                )
-                layers.append(norm_layer)
+            if normalization is not None:
+                layers.append(normalization(h_dim))
 
-            # 3. Função de Ativação (instancia uma nova para cada camada)
-            layers.append(hydra.utils.instantiate(self.net_params.activation))
+            layers.append(activation())
 
-            # 4. Dropout para regularização
-            if self.net_params.dropout > 0:
-                layers.append(nn.Dropout(self.net_params.dropout))
-
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
             curr_in = h_dim
 
-        # Camada final de saída
-        layers.append(nn.Linear(curr_in, self.output_dim))
+        layers.append(nn.Linear(curr_in, total_out))
+        self.net = nn.Sequential(*layers)
 
-        return nn.Sequential(*layers)
+    def forward(self, x: TactileInput) -> torch.Tensor:
+        evetac = x["evetac"].view(x["evetac"].size(0), -1)
+        base = x["base"].view(x["base"].size(0), -1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.model(x)
-        # Normalização L2 na última camada: garante que o vetor de saída seja unitário
+        combined = torch.cat((evetac, base), dim=1)
+        out = self.net(combined)
+
         return out / (torch.norm(out, p=2, dim=1, keepdim=True) + 1e-8)
-
-
-# --- 3. Helper Functions ---
-def get_angular_error(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Calculates angular error in degrees between unit vectors."""
-    # Como as saídas já estão normalizadas, o dot product é a própria similaridade de cosseno
-    cos_theta = torch.sum(pred * target, dim=1)
-    cos_theta = torch.clamp(cos_theta, -1.0 + 1e-7, 1.0 - 1e-7)
-    return torch.rad2deg(torch.acos(cos_theta))

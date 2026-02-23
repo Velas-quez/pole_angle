@@ -5,7 +5,6 @@ import joblib
 import mlflow.pytorch
 import mlflow.artifacts
 from os.path import join as pjoin
-from sklearn.metrics import mean_squared_error
 
 # --- 1. Configurações ---
 RUN_ID = "c34ec37d74664b64ab931011d61488b0"  # Copie do dashboard do MLflow

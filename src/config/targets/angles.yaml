@@ -1,0 +1,6 @@
+# conf/target/angles.yaml
+name: "alpha_beta"
+columns: ["target_roll", "target_pitch"] # Exemplo das colunas do teu parquet
+convert_to_vector_fn:
+  _target_: src.utils.metrics.euler_to_vector
+  _partial_: true

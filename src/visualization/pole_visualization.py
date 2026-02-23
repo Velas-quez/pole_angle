@@ -4,7 +4,6 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d import Axes3D
 import os
 from models.model_feat_mlp import TactileMLP
 from IPython.display import HTML

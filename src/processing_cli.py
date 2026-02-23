@@ -6,7 +6,6 @@ from typing import Dict
 
 from processing.config import get_model_strategy, load_model_map
 
-
 DEFAULT_EVTAC_NAME = "evtac.parquet"
 DEFAULT_MARKERS_NAME = "markers.parquet"
 DEFAULT_OPTI_NAME = "optitrack.parquet"
@@ -44,9 +43,13 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Central processing entrypoint",
         add_help=True,
     )
-    parser.add_argument("--list", action="store_true", help="List models and processors")
+    parser.add_argument(
+        "--list", action="store_true", help="List models and processors"
+    )
     parser.add_argument("--model", help="Model name to resolve processor")
-    parser.add_argument("--input-path", help="Input path or folder required by processor")
+    parser.add_argument(
+        "--input-path", help="Input path or folder required by processor"
+    )
     parser.add_argument("--evtac", help=f"Default: {DEFAULT_EVTAC_NAME}")
     parser.add_argument("--markers", help=f"Default: {DEFAULT_MARKERS_NAME}")
     parser.add_argument("--opti", help=f"Default: {DEFAULT_OPTI_NAME}")

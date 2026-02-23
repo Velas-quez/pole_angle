@@ -62,7 +62,9 @@ def get_model_strategy(model_name: str, **strategy_kwargs) -> BaseStrategy:
         raise AttributeError(
             f"Processor '{processor_name}' does not expose a Strategy class"
         )
-    instance = module.Strategy(**strategy_kwargs) if strategy_kwargs else module.Strategy()
+    instance = (
+        module.Strategy(**strategy_kwargs) if strategy_kwargs else module.Strategy()
+    )
     if not isinstance(instance, BaseStrategy):
         raise TypeError(
             f"Processor '{processor_name}' Strategy must inherit from BaseStrategy"

@@ -1,0 +1,18 @@
+# conf/processing_config.yaml
+defaults:
+  - _self_
+  - strategies: statistical_multi_quads_strategy
+
+# Diretórios de Entrada
+input:
+  dir: "data/train/preprocessed/"
+  evtac: "evtac.parquet"
+  markers: "markers.parquet"
+  opti: "optitrack.parquet"
+
+# Diretório de Saída
+output:
+  base_dir: "data/train/processed/"
+
+# Se quiser processar múltiplos de uma vez (opcional)
+force_reprocess: false

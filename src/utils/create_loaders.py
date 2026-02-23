@@ -1,90 +1,59 @@
-import torch
 import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
-import pandas as pd
-from typing import Tuple
+from typing import Dict, Optional, Tuple
+
+from src.processing.strategies.base_strategy import BaseStrategy
+from src.types import TactileData
 
 
-class TactileDataset(Dataset):
-    def __init__(self, X, y):
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y, dtype=torch.float32)
-
-    def __len__(self):
-        return len(self.X)
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-
-def load_parquet_files(*file_paths: str) -> Tuple[pd.DataFrame]:
+def create_loaders(
+    data_dict: TactileData,
+    strategy: BaseStrategy,
+    batch_size: int = 128,
+    existing_scaler_evetac: Optional[StandardScaler] = None,
+    existing_scaler_base: Optional[StandardScaler] = None,
+    split_ratio: float = 0.8,
+) -> Tuple[DataLoader, DataLoader, StandardScaler, StandardScaler]:
     """
-    Load all parquets and return them as a tuple of DataFrames.
+    Cria DataLoaders com scalers independentes para EvETAC e Base.
+    Retorna Dataloader de treino, Dataloader de validação, scaler para EvETAC e scaler para Base.
     """
-    dataframes = []
-    for path in file_paths:
-        try:
-            df = pd.read_parquet(path)
-            dataframes.append(df)
-            print(f"✅ Loaded: {path} with shape {df.shape}")
-        except Exception as e:
-            print(f"❌ Error loading {path}: {e}")
-            raise e
-    return tuple(dataframes)
 
+    # 1. Split Sequencial
+    num_samples = len(data_dict["target"])
+    split_idx = int(num_samples * split_ratio)
 
-def create_loaders(df, batch_size=128, existing_scaler=None):
-    """
-    Orchestrates the continuous split (80/20), scaling, and loader creation.
-    Validation is the last 20% (continuous).
-    Training is the first 80% (shuffled during loading).
-    """
-    # 1. Identify Columns
-    target_cols = [c for c in df.columns if "target" in c]
-    feature_cols = [c for c in df.columns if "target" not in c]
+    train_data = {k: v[:split_idx] for k, v in data_dict.items()}
+    val_data = {k: v[split_idx:] for k, v in data_dict.items()}
 
-    # 2. Sequential Split (NO SHUFFLE YET)
-    split_idx = int(len(df) * 0.8)
-
-    train_df = df.iloc[:split_idx]
-    val_df = df.iloc[split_idx:]
-
-    X_train = train_df[feature_cols].values
-    y_train = train_df[target_cols].values
-
-    X_val = val_df[feature_cols].values
-    y_val = val_df[target_cols].values
-
-    # 3. Scaling (Resuming logic preserved)
-    if existing_scaler is not None:
-        print("Using provided scaler for normalization...")
-        scaler = existing_scaler
+    # 2. Scaling EvETAC
+    scaler_evetac = existing_scaler_evetac or StandardScaler()
+    if existing_scaler_evetac is None:
+        train_data["evetac"] = scaler_evetac.fit_transform(train_data["evetac"])
     else:
-        print("Fitting new scaler on training data...")
-        scaler = StandardScaler()
-        scaler.fit(X_train)  # Fit only on training data
+        train_data["evetac"] = scaler_evetac.transform(train_data["evetac"])
+    val_data["evetac"] = scaler_evetac.transform(val_data["evetac"])
 
-    # Transform both sets
-    X_train = scaler.transform(X_train)
-    X_val = scaler.transform(X_val)
+    # 3. Scaling Base (Novidade)
+    scaler_base = existing_scaler_base or StandardScaler()
+    if existing_scaler_base is None:
+        train_data["base"] = scaler_base.fit_transform(train_data["base"])
+    else:
+        train_data["base"] = scaler_base.transform(train_data["base"])
+    val_data["base"] = scaler_base.transform(val_data["base"])
 
-    # 4. Create PyTorch Objects
-    train_ds = TactileDataset(X_train, y_train)
-    val_ds = TactileDataset(X_val, y_val)
+    # 4. Criar Datasets via Strategy
+    train_ds = strategy.get_dataset(train_data)
+    val_ds = strategy.get_dataset(val_data)
 
-    # 5. Create Loaders
-    # shuffle=True here only shuffles the training samples per epoch
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    # 5. Criar Loaders
+    train_loader = DataLoader(
+        train_ds, batch_size=batch_size, shuffle=True, pin_memory=True
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=batch_size, shuffle=False, pin_memory=True
+    )
 
-    # shuffle=False for validation to keep it as a continuous sequence replay
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-
-    input_dim = len(feature_cols)
-    output_dim = len(target_cols)
-
-    print(f"✅ Data Ready: {len(train_ds)} train samples, {len(val_ds)} val samples.")
-
-    # return None for test_loader
-    return train_loader, val_loader, None, scaler, input_dim, output_dim
+    print(f"✅ Loaders com Dual Scalers prontos.")
+    return train_loader, val_loader, scaler_evetac, scaler_base
