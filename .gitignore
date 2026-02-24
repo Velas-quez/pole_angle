@@ -12,3 +12,7 @@ preprocessing/
 .session.vim
 /.vscode
 uv.lock
+/venv/*
+/venv
+/outputs
+/data
