@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Tuple
 import torch
 import torch.nn as nn
-from src.types import TactileInput
+from src.tactile_types import TactileInput
 
 
 class BaseTactileModel(nn.Module, ABC):

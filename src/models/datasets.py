@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from typing import Dict, Tuple
-from src.types import TactileData, TactileInput
+from src.tactile_types import TactileData, TactileInput
 
 
 class TactileVectorDataset(Dataset):

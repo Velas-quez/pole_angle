@@ -4,7 +4,7 @@ import torch.nn as nn
 import hydra
 from omegaconf import DictConfig
 from src.models.base_model import BaseTactileModel
-from src.types import TactileInput
+from src.tactile_types import TactileInput
 
 from typing import Callable
 

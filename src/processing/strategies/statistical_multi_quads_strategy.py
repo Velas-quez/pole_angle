@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 from src.processing.strategies.base_strategy import BaseStrategy
 from src.models.datasets import TactileVectorDataset
-from src.types import TactileData
+from src.tactile_types import TactileData
 
 
 def get_event_hu_moments(x_coords: np.ndarray, y_coords: np.ndarray) -> np.ndarray:
