@@ -107,7 +107,8 @@ def run_training_loop(
         # --- PHASE: VALIDATION ---
         model.eval()
         val_running_loss = 0.0
-        val_running_angle = 0.0
+        val_errors = []
+
 
         with torch.no_grad():
             for batch_x, batch_y in val_loader:
@@ -126,10 +127,12 @@ def run_training_loop(
                 angle_err = angle_diff_deg(out_vecs, tgt_vecs)
 
                 val_running_loss += loss.item() * targets.size(0)
-                val_running_angle += angle_err.mean().item() * targets.size(0)
+                val_errors.append(angle_err)
 
+        val_errors = torch.cat(val_errors)
         epoch_val_loss = val_running_loss / len(val_loader.dataset)
-        epoch_val_angle = val_running_angle / len(val_loader.dataset)
+        epoch_val_angle_mean = val_errors.mean().item()
+        epoch_val_angle_std = val_errors.std().item()
 
         # 3. Scheduler & Logging
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -143,7 +146,8 @@ def run_training_loop(
         mlflow.log_metric("train_loss", epoch_train_loss, step=epoch)
         mlflow.log_metric("train_angle_deg", epoch_train_angle, step=epoch)
         mlflow.log_metric("val_loss", epoch_val_loss, step=epoch)
-        mlflow.log_metric("val_angle_deg", epoch_val_angle, step=epoch)
+        mlflow.log_metric("val_angle_deg", epoch_val_angle_mean, step=epoch)
+        mlflow.log_metric("val_angle_deg_std", epoch_val_angle_std, step=epoch)
         mlflow.log_metric("lr", current_lr, step=epoch)
 
         # Checkpoint baseado na loss de validação
@@ -154,7 +158,7 @@ def run_training_loop(
         if epoch % 10 == 0:
             print(
                 f"Epoch {epoch} | Val Loss: {epoch_val_loss:.4f} | "
-                f"Val Angle Err: {epoch_val_angle:.2f}° | LR: {current_lr}"
+                f"Val Angle Err: {epoch_val_angle_mean:.2f}° (±{epoch_val_angle_std:.2f}°) | LR: {current_lr}"
             )
 
     model.load_state_dict(best_model_wts)
