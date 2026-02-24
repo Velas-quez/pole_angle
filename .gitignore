@@ -16,3 +16,4 @@ uv.lock
 /venv
 /outputs
 /data
+*.db
