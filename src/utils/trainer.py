@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from omegaconf import DictConfig
 
 from src.models.base_model import BaseTactileModel
-from src.types import TactileInput
+from src.tactile_types import TactileInput
 # --- TIPAGEM DA CONFIGURAÇÃO (Refletindo o teu config.yaml) ---
 
 

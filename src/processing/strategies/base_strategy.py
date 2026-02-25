@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from torch.utils.data import Dataset
-from src.types import TactileData
+from src.tactile_types import TactileData
 
 
 class BaseStrategy(ABC):

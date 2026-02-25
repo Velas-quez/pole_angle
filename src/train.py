@@ -5,6 +5,7 @@ from typing import MutableMapping
 import hydra
 from hydra.core.hydra_config import HydraConfig
 import joblib
+import mlflow.artifacts
 import mlflow
 import torch
 from omegaconf import DictConfig
@@ -17,13 +18,13 @@ sys.path.append(str(root_dir))
 from src.processing.strategies.base_strategy import BaseStrategy
 from src.utils.create_loaders import create_loaders
 from src.utils.trainer import run_training_loop
-from src.types import TactileData  # Importando o tipo para garantir consistência
+from src.tactile_types import TactileData  # Importando o tipo para garantir consistência
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def train(cfg: DictConfig):
     # 1. Setup MLflow
-    mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
+    mlflow.set_tracking_uri(Path("mlruns").resolve().as_uri())
     mlflow.set_experiment(cfg.experiment_name)
 
     device = torch.device(
@@ -77,10 +78,12 @@ def train(cfg: DictConfig):
         if resume_id:
             print(f"🔄 Resuming Run: {resume_id}")
             # Recuperar scalers do MLflow
-            uri_evetac = mlflow.get_artifact_uri("scaler_evetac.pkl").replace(
-                "file://", ""
+            uri_evetac = mlflow.artifacts.download_artifacts(
+                run_id=resume_id, artifact_path="scaler_evetac.pkl"
             )
-            uri_base = mlflow.get_artifact_uri("scaler_base.pkl").replace("file://", "")
+            uri_base = mlflow.artifacts.download_artifacts(
+                run_id=resume_id, artifact_path="scaler_base.pkl"
+            )
             scaler_evetac = joblib.load(uri_evetac)
             scaler_base = joblib.load(uri_base)
 

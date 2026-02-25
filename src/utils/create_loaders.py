@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 from typing import Dict, Optional, Tuple
 
 from src.processing.strategies.base_strategy import BaseStrategy
-from src.types import TactileData
+from src.tactile_types import TactileData
 
 
 def create_loaders(
