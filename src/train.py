@@ -41,7 +41,7 @@ def train(cfg: DictConfig):
 
     # Processar se a pasta da estratégia não existir
     if not strategy_dir.exists():
-        print(f"⚙️ Processando novos dados com a estratégia: {choices['strategies']}")
+        print(f"⚙️  Processing new data with strategy: {choices['strategies']}")
         strategy.transform(
             evtac_path=cfg.data.pre_processed.train.evtac,
             markers_path=cfg.data.pre_processed.train.markers,
@@ -49,7 +49,7 @@ def train(cfg: DictConfig):
             output_base_dir=str(processed_base_dir),
         )
     else:
-        print(f"📦 Cache encontrado em: {strategy_dir.name}")
+        print(f"📦 Cache found in: {strategy_dir.name}")
 
     # 4. Carregar Dados (Delegado à Strategy)
     # A strategy retorna um objeto TactileData (TypedDict)
@@ -89,7 +89,7 @@ def train(cfg: DictConfig):
             model = mlflow.pytorch.load_model(model_uri).to(device)
 
         elif scaler_evetac_path.exists() and scaler_base_path.exists():
-            print("✅ Carregando Scalers pré-existentes do disco.")
+            print("✅ Loading existing scalers from disk.")
             scaler_evetac = joblib.load(scaler_evetac_path)
             scaler_base = joblib.load(scaler_base_path)
 
@@ -112,7 +112,7 @@ def train(cfg: DictConfig):
         output_shape = data_dict["target"].shape[1:]
         # 8. Instanciar Modelo
         if model is None:
-            print(f"🚀 Inicializando modelo: {cfg.models._target_}")
+            print(f"🚀 Initializing model: {cfg.models._target_}")
             # Passamos as dimensões separadas para que o modelo saiba lidar com o TactileInput
             model = hydra.utils.instantiate(
                 cfg.models,
@@ -142,7 +142,7 @@ def train(cfg: DictConfig):
 
         # 10. Finalizar
         mlflow.pytorch.log_model(best_model, "model")
-        print(f"✨ Run {run.info.run_id} finalizada com sucesso.")
+        print(f"✨ Run {run.info.run_id} finished successfully.")
 
 
 def flatten_dict(d: MutableMapping, parent_key: str = "", sep: str = ".") -> dict:
