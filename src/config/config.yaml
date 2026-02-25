@@ -8,7 +8,7 @@ defaults:
 
 experiment_name: "Pole_Balancing_MLP_Vector"
 use_gpu: true
-resume_run_id: null
+resume_run_id: 186842e5e8c54dbabbe451385853d88a
 
 data:
   processed_dir:

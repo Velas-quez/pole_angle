@@ -17,3 +17,5 @@ uv.lock
 /outputs
 /data
 *.db
+src/mlruns/
+src/outputs/
