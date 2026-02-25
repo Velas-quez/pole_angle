@@ -241,6 +241,7 @@ def extract_and_prepare_parquet(
                 ]
 
         df_bag = pd.DataFrame(evtac_feat_arr[:, 1:], columns=cols)
+        df_bag["bag_name"] = bag
         df_bag[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
         df_bag[["target_x", "target_y", "target_z"]] = np.array(final_vec_targets)
         all_episodes_results.append(df_bag)
