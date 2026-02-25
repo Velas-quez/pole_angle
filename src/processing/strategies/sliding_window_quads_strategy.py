@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 
+from src.tactile_types import TactileData
 from src.processing.strategies.base_strategy import BaseStrategy
 from src.models.datasets import TactileVectorDataset
-from src.types import TactileData
 
 # Importing the heavy lifting from your original file
 from .statistical_multi_quads_strategy import extract_and_prepare_parquet
@@ -19,7 +19,7 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
     """
     name: str = "sliding_window_quads"
 
-    def __init__(self, quad_width: float = 0.25, quad_height: float = 0.25):
+    def __init__(self, quad_width: float = 1, quad_height: float = 1):
         self.quad_width = quad_width
         self.quad_height = quad_height
         self.window_size = 3 # t, t-1, t-2
