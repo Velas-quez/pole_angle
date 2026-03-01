@@ -30,6 +30,7 @@ training:
   batch_size: 128
   epochs: 200
   use_gpu: true # Replaces the 'cuda' if check in code
+  scale_evtac: true
   optimizer:
     _target_: torch.optim.AdamW # Optimizer: AdamW
     lr: 0.002                 # Learning rate
