@@ -8,7 +8,7 @@ import joblib
 import mlflow.artifacts
 import mlflow
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 import sys
 
@@ -33,7 +33,12 @@ def train(cfg: DictConfig):
 
     # 2. Instanciar Estratégia via Hydra
     choices = HydraConfig.get().runtime.choices
-    print(cfg.strategies)
+    print("Active Hydra choices:")
+    print(f"  model: {choices['models']}")
+    print(f"  strategy: {choices['strategies']}")
+    print(f"  target: {choices['targets']}")
+    print("\nResolved configuration:")
+    print(OmegaConf.to_yaml(cfg, resolve=True))
     strategy: BaseStrategy = hydra.utils.instantiate(cfg.strategies)
 
     # 3. Gerenciamento de Pastas
@@ -103,6 +108,7 @@ def train(cfg: DictConfig):
             batch_size=cfg.training.batch_size,
             existing_scaler_evetac=scaler_evetac,
             existing_scaler_base=scaler_base,
+            scale_evtac=cfg.training.get("scale_evtac", True),
         )
 
         # 7. Definição das Dimensões para o Modelo

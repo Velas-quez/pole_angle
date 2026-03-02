@@ -36,6 +36,7 @@ class TrainingConfig:
     batch_size: int
     epochs: int
     use_gpu: bool
+    scale_evtac: bool
     optimizer: OptimizerConfig
     criterion: Dict[str, Any]  # _target_ da Loss
     scheduler: SchedulerConfig
@@ -66,6 +67,12 @@ def run_training_loop(
     )
     # Função que converte o output (Euler ou Vetor) para Vetor Unitário 3D
     convert_fn = hydra.utils.instantiate(cfg.targets.convert_to_vector_fn)
+    angle_metric_fn_cfg = cfg.targets.get("angle_metric_fn", None)
+    angle_metric_fn = (
+        hydra.utils.instantiate(angle_metric_fn_cfg)
+        if angle_metric_fn_cfg is not None
+        else None
+    )
 
     scheduler = hydra.utils.instantiate(cfg.training.scheduler, optimizer=optimizer)
 
@@ -73,12 +80,14 @@ def run_training_loop(
     best_model_wts = copy.deepcopy(model.state_dict())
 
     for epoch in range(cfg.training.epochs):
+        print(f"\nStarting epoch {epoch + 1}/{cfg.training.epochs}...", flush=True)
         # --- PHASE: TRAINING ---
         model.train()
         train_running_loss = 0.0
         train_running_angle = 0.0
+        train_seen = 0
 
-        for batch_x, batch_y in train_loader:
+        for batch_idx, (batch_x, batch_y) in enumerate(train_loader):
             inputs: TactileInput = {k: v.to(device) for k, v in batch_x.items()}
             targets = batch_y.to(device)
 
@@ -94,12 +103,30 @@ def run_training_loop(
 
             # Cálculo da Métrica Angular (sempre em graus)
             with torch.no_grad():
-                out_vecs = convert_fn(outputs)
-                tgt_vecs = convert_fn(targets)
-                angle_err = angle_diff_deg(out_vecs, tgt_vecs)
+                if angle_metric_fn is not None:
+                    angle_err = angle_metric_fn(outputs, targets)
+                else:
+                    out_vecs = convert_fn(outputs)
+                    tgt_vecs = convert_fn(targets)
+                    angle_err = angle_diff_deg(out_vecs, tgt_vecs)
 
                 train_running_loss += loss.item() * targets.size(0)
                 train_running_angle += angle_err.mean().item() * targets.size(0)
+                train_seen += targets.size(0)
+
+            if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(train_loader):
+                train_loss_so_far = train_running_loss / max(train_seen, 1)
+                train_angle_so_far = train_running_angle / max(train_seen, 1)
+                print(
+                    (
+                        f"\rEpoch {epoch + 1}/{cfg.training.epochs} | "
+                        f"Train {batch_idx + 1}/{len(train_loader)} | "
+                        f"tr_loss={train_loss_so_far:.4f} | tr_angle={train_angle_so_far:.2f}° | "
+                        f"val_loss=... | val_angle=..."
+                    ),
+                    end="",
+                    flush=True,
+                )
 
         epoch_train_loss = train_running_loss / len(train_loader.dataset)
         epoch_train_angle = train_running_angle / len(train_loader.dataset)
@@ -108,10 +135,11 @@ def run_training_loop(
         model.eval()
         val_running_loss = 0.0
         val_errors = []
+        val_seen = 0
 
 
         with torch.no_grad():
-            for batch_x, batch_y in val_loader:
+            for batch_idx, (batch_x, batch_y) in enumerate(val_loader):
                 inputs: TactileInput = {k: v.to(device) for k, v in batch_x.items()}
                 targets = batch_y.to(device)
 
@@ -122,17 +150,44 @@ def run_training_loop(
                 loss = criterion(*args)
 
                 # Ângulo real
-                out_vecs = convert_fn(outputs)
-                tgt_vecs = convert_fn(targets)
-                angle_err = angle_diff_deg(out_vecs, tgt_vecs)
+                if angle_metric_fn is not None:
+                    angle_err = angle_metric_fn(outputs, targets)
+                else:
+                    out_vecs = convert_fn(outputs)
+                    tgt_vecs = convert_fn(targets)
+                    angle_err = angle_diff_deg(out_vecs, tgt_vecs)
 
                 val_running_loss += loss.item() * targets.size(0)
                 val_errors.append(angle_err)
+                val_seen += targets.size(0)
+
+                if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(val_loader):
+                    val_errors_so_far = torch.cat(val_errors)
+                    val_loss_so_far = val_running_loss / max(val_seen, 1)
+                    val_angle_so_far = val_errors_so_far.mean().item()
+                    print(
+                        (
+                            f"\rEpoch {epoch + 1}/{cfg.training.epochs} | "
+                            f"Val {batch_idx + 1}/{len(val_loader)} | "
+                            f"tr_loss={epoch_train_loss:.4f} | tr_angle={epoch_train_angle:.2f}° | "
+                            f"val_loss={val_loss_so_far:.4f} | val_angle={val_angle_so_far:.2f}°"
+                        ),
+                        end="",
+                        flush=True,
+                    )
 
         val_errors = torch.cat(val_errors)
         epoch_val_loss = val_running_loss / len(val_loader.dataset)
         epoch_val_angle_mean = val_errors.mean().item()
         epoch_val_angle_std = val_errors.std().item()
+        print(
+            (
+                f"\rEpoch {epoch + 1}/{cfg.training.epochs} | Done | "
+                f"tr_loss={epoch_train_loss:.4f} | tr_angle={epoch_train_angle:.2f}° | "
+                f"val_loss={epoch_val_loss:.4f} | val_angle={epoch_val_angle_mean:.2f}°"
+            ),
+            flush=True,
+        )
 
         # 3. Scheduler & Logging
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -155,9 +210,9 @@ def run_training_loop(
             best_val_loss = epoch_val_loss
             best_model_wts = copy.deepcopy(model.state_dict())
 
-        if epoch % 10 == 0:
+        if (epoch + 1) % 10 == 0:
             print(
-                f"Epoch {epoch} | Val Loss: {epoch_val_loss:.4f} | "
+                f"Epoch {epoch + 1} | Val Loss: {epoch_val_loss:.4f} | "
                 f"Val Angle Err: {epoch_val_angle_mean:.2f}° (±{epoch_val_angle_std:.2f}°) | LR: {current_lr}"
             )
 

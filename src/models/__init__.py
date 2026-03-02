@@ -1,4 +1,5 @@
 from .base_model import BaseTactileModel
+from .model_cnn_tcn import TactileCNNTCN
 from .model_mlp_vector import TactileMLPVector
 
-__all__ = ["BaseTactileModel", "TactileMLPVector"]
+__all__ = ["BaseTactileModel", "TactileMLPVector", "TactileCNNTCN"]

@@ -1,0 +1,8 @@
+name: "quaternion"
+columns: ["target_qx", "target_qy", "target_qz", "target_qw"]
+convert_to_vector_fn:
+  _target_: src.utils.metrics.identity_transform
+  _partial_: true
+angle_metric_fn:
+  _target_: src.utils.metrics.quaternion_geodesic_deg
+  _partial_: true
