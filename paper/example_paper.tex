@@ -1,0 +1,121 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ICML 2025 SUBMISSION DRAFT: Event-based Tactile Pole Balancing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+% \usepackage{icml2025}
+% If accepted, instead use the following line for the camera-ready submission:
+\usepackage[accepted]{icml2025} % using [accepted] to show author names in draft
+
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+\icmltitlerunning{Learning Pole Balancing via Event-based Tactile Early Fusion}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{Learning Pole Balancing via Event-based Tactile Early Fusion: \\
+           A Comparative Analysis of Angular and Vectorial Representations}
+
+\icmlsetsymbol{equal}{*}
+
+\begin{icmlauthorlist}
+\icmlauthor{Victor P. S. Pepe}{equal,tud,usp}
+\icmlauthor{Thiago Daquino Velasquez}{equal,tud,usp}
+\icmlauthor{Bárbara Fernandes Dias Bueno}{equal,tud,usp}
+\icmlauthor{Tim Schneider}{tud}
+\icmlauthor{Niklas Fund}{tud}
+\end{icmlauthorlist}
+
+\icmlaffiliation{tud}{Department of Electrical Engineering and Information Technology, TU Darmstadt, Darmstadt, Germany}
+\icmlaffiliation{usp}{Polytechnic School, University of São Paulo (Poli-USP), São Paulo, Brazil}
+
+\icmlcorrespondingauthor{Victor P. S. Pepe}{victor.pepe@stud.tu-darmstadt.de}
+
+\icmlkeywords{Machine Learning, ICML, Tactile Sensing, Event-based Vision, Robotics, Deep Learning, Pole Balancing}
+
+\vskip 0.3in
+]
+
+\printAffiliationsAndNotice{\icmlEqualContribution} 
+
+\begin{abstract}
+This paper investigates the task of pole balancing using high-temporal resolution event-based tactile sensors. We propose an Early Fusion Multi-Layer Perceptron (MLP) architecture that integrates statistical moments of event data with the robot's proprioceptive state to predict the pole's orientation. Furthermore, we conduct a comparative analysis between two output representations: direct 3D unit vector regression and Euler angles. Preliminary results indicate that the vectorial representation, when optimized with Cosine Embedding Loss, provides superior stability and avoids gimbal lock issues inherent in angular regressions. Our universal evaluation metric demonstrates an average angular error reduction, highlighting the efficacy of our spatial pooling strategy for real-time tactile inference.
+\end{abstract}
+
+\section{Introduction}
+\label{intro}
+
+Pole balancing is a classic benchmark in control theory and robotics, requiring precise and low-latency feedback to maintain an inherently unstable system. Traditional vision-based systems often suffer from motion blur and high latency, limiting their effectiveness in highly dynamic manipulation tasks. In this work, we leverage neuromorphic tactile sensing, which provides asynchronous, event-based data with microsecond resolution.
+
+Our primary contribution is twofold: (i) an efficient statistical strategy for event-feature extraction using multi-quadrant spatial pooling, and (ii) an empirical evaluation of different output head geometries for orientation estimation, providing a generalized framework for evaluating regression models in 3D space.
+
+\section{System Architecture}
+
+\subsection{Feature Extraction: Spatial Quadrants}
+Processing raw event streams is computationally expensive for high-frequency control loops. We introduce the \textit{Statistical Multi-Quads Strategy}, which partitions the tactile sensor array into $N$ rectangular spatial quadrants. For each quadrant, we compute the statistical moments (e.g., mean, variance) of the tactile events over a fixed temporal window. This spatial pooling reduces the dimensionality of the input while preserving localized force distributions.
+
+\subsection{Early Fusion MLP}
+The proposed model, \texttt{TactileMLPVector}, receives a dual input stream:
+\begin{itemize}
+    \item \textbf{Tactile Stream ($\mathbf{x}_{evtac}$):} Flattened statistical features extracted from the multi-quadrant processing.
+    \item \textbf{Robot State ($\mathbf{x}_{base}$):} The current proprioceptive state of the robotic manipulator, including joint positions and velocities.
+\end{itemize}
+
+These features undergo early fusion via concatenation, forming a single latent vector $\mathbf{z} = [\mathbf{x}_{evtac}, \mathbf{x}_{base}]$. The vector is then processed by a multi-layer perceptron equipped with Batch Normalization, Dropout, and ReLU activations.
+
+\subsection{Output Representations}
+We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
+\begin{enumerate}
+    \item \textbf{Vectorial Head:} Predicts a 3D vector $\hat{\mathbf{v}} \in \mathbb{R}^3$, followed by an $L_2$ normalization layer to guarantee a unit direction vector $||\hat{\mathbf{v}}|| = 1$.
+    \item \textbf{Angular Head:} Predicts Euler angles $(\hat{\phi}, \hat{\theta})$, representing azimuth and elevation.
+\end{enumerate}
+
+\section{Training Methodology}
+
+\subsection{Loss Functions}
+For the angular representation, standard Mean Squared Error (MSE) is applied. For the vectorial representation, we employ the Cosine Embedding Loss, defined as:
+\begin{equation}
+\mathcal{L}(\mathbf{v}, \hat{\mathbf{v}}) = 1 - \cos(\mathbf{v}, \hat{\mathbf{v}})
+\end{equation}
+By setting the target similarity to $1$, this loss directly optimizes the alignment between the predicted and ground truth orientation vectors. 
+
+\subsection{Universal Metric: Mean Angular Error}
+Comparing an angular model against a vectorial model requires an agnostic evaluation metric. We introduce a decoupled post-processing function that maps any model output back to a 3D unit vector. Performance is universally tracked using the \textit{Mean Angular Error} ($\text{MAE}_{\text{deg}}$):
+\begin{equation}
+\text{MAE}_{\text{deg}} = \frac{180}{\pi} \frac{1}{M} \sum_{i=1}^M \arccos \left( \operatorname{clamp}(\hat{\mathbf{v}}_i \cdot \mathbf{v}_i, -1, 1) \right)
+\end{equation}
+where $M$ is the batch size. This formulation provides a physically interpretable measure of the network's spatial deviation.
+
+\section{Experiments and Results}
+
+The models were trained using the AdamW optimizer with a Reduce-LROnPlateau scheduler. Hyperparameter tuning and model tracking were managed via Hydra and MLflow, ensuring strict decoupling between the model definition and the training loop. 
+
+\textit{[Insert experimental results here. Focus on the validation $\text{MAE}_{\text{deg}}$ comparison between the Euler and Vectorial approaches, and the inference time of the Multi-Quads strategy.]}
+
+\section{Conclusion}
+Our findings suggest that vectorial representation is significantly more robust for high-frequency tactile feedback in pole balancing tasks. The event-based statistical pooling strategy successfully balances low latency with sufficient spatial acuity. Future work will explore the integration of Recurrent Neural Networks (RNNs) and Spiking Neural Networks (SNNs) to capture the temporal dynamics of the event stream natively.
+
+\bibliography{example_paper}
+\bibliographystyle{icml2025}
+
+\end{document}
