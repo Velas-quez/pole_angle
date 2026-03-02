@@ -1,0 +1,14 @@
+_target_: src.models.TactileStatsTCN
+
+evetac_hidden_dim: 128
+evetac_embedding_dim: 96
+base_hidden_dim: 64
+base_embedding_dim: 32
+
+tcn_channels: [128, 128, 128]
+tcn_kernel_size: 3
+tcn_dropout: 0.1
+
+head_hidden_dims: [128, 64]
+temporal_window: 10
+normalize_output: true

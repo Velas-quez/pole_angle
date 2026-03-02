@@ -1,0 +1,40 @@
+defaults:
+  - _self_
+  - models: stats_tcn
+  - strategies: temporal_statistical_multi_quads_strategy
+  - targets: vector
+
+experiment_name: "Pole_Orientation_StatsTCN_Vector"
+use_gpu: true
+resume_run_id: null
+
+data:
+  processed_dir:
+    train: "data/train_mit_babs/processed/"
+    test: "data/test/processed/"
+  pre_processed:
+    train:
+      evtac: "data/train_mit_babs/preprocessed/evtac.parquet"
+      markers: "data/train_mit_babs/preprocessed/markers.parquet"
+      opti: "data/train_mit_babs/preprocessed/optitrack.parquet"
+    test:
+      evtac: "data/test/preprocessed/evtac.parquet"
+      markers: "data/test/preprocessed/markers.parquet"
+      opti: "data/test/preprocessed/optitrack.parquet"
+
+training:
+  batch_size: 128
+  epochs: 100
+  use_gpu: true
+  scale_evtac: true
+  optimizer:
+    _target_: torch.optim.AdamW
+    lr: 0.001
+    weight_decay: 0.01
+  criterion:
+    _target_: torch.nn.CosineEmbeddingLoss
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: "min"
+    factor: 0.5
+    patience: 6
