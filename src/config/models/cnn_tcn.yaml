@@ -4,8 +4,8 @@ img_embedding_dim: 128
 base_embedding_dim: 32
 base_hidden_dim: 64
 
-cnn_channels: [16, 32, 64]
-tcn_channels: [128, 128, 128, 128]
+cnn_channels: [8, 16, 32]
+tcn_channels: [64, 64, 64, 64]
 tcn_kernel_size: 3
 tcn_dropout: 0.1
 
