@@ -1,6 +1,8 @@
-This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
+This is BibTeX, Version 0.99e
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: example_paper.aux
+Reallocating 'name_of_file' (item size: 1) to 14 items.
+Reallocating 'name_of_file' (item size: 1) to 9 items.
 The style file: icml2025.bst
 I found no \citation commands---while reading file example_paper.aux
 Database file #1: example_paper.bib
