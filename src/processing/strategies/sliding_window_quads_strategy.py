@@ -19,10 +19,10 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
     """
     name: str = "sliding_window_quads"
 
-    def __init__(self, quad_width: float = 1, quad_height: float = 1):
+    def __init__(self, quad_width: float = 1, quad_height: float = 1, window_size: int = 3):
         self.quad_width = quad_width
         self.quad_height = quad_height
-        self.window_size = 3 # t, t-1, t-2
+        self.window_size = window_size
 
     def get_dirname(self) -> str:
         return f"{self.name}_w{self.quad_width}_h{self.quad_height}"
