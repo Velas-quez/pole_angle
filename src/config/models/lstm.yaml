@@ -1,0 +1,9 @@
+_target_: src.models.TactileLSTMVector
+window_size: ${strategies.window_size} # Links to your strategy config
+lstm_hidden_dim: 128
+neurons: [256, 128, 64]
+dropout: 0.1
+activation:
+  _target_: torch.nn.ReLU
+normalization:
+  _target_: torch.nn.BatchNorm1d
