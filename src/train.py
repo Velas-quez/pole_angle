@@ -1,24 +1,25 @@
 import os
+import sys
 from pathlib import Path
 from typing import MutableMapping
 
 import hydra
-from hydra.core.hydra_config import HydraConfig
 import joblib
-import mlflow.artifacts
 import mlflow
+import mlflow.artifacts
 import torch
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
-
-import sys
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 # Utilitários do projeto
 from src.processing.strategies.base_strategy import BaseStrategy
+from src.tactile_types import (
+    TactileData,  # Importando o tipo para garantir consistência
+)
 from src.utils.create_loaders import create_loaders
 from src.utils.trainer import run_training_loop
-from src.tactile_types import TactileData  # Importando o tipo para garantir consistência
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
@@ -109,6 +110,7 @@ def train(cfg: DictConfig):
             existing_scaler_evetac=scaler_evetac,
             existing_scaler_base=scaler_base,
             scale_evtac=cfg.training.get("scale_evtac", True),
+            split_ratio=cfg.training.get("split_ratio", 0.8),
         )
 
         # 7. Definição das Dimensões para o Modelo

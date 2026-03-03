@@ -1,6 +1,6 @@
 import hydra
 from pathlib import Path
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import os
 
 

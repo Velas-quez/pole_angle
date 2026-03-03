@@ -4,6 +4,7 @@ import torch.nn as nn
 from src.models.base_model import BaseTactileModel
 from src.tactile_types import TactileInput
 
+
 class TactileLSTMVector(BaseTactileModel):
     def __init__(
         self,
@@ -18,7 +19,7 @@ class TactileLSTMVector(BaseTactileModel):
     ):
         super().__init__(input_shape_dict, output_shape)
         self.window_size = window_size
-        
+
         # Determine the number of features per time step
         # Original shape is (window_size * features), we need just 'features'
         self.evetac_feats = input_shape_dict["evetac"][0] // window_size
@@ -29,8 +30,8 @@ class TactileLSTMVector(BaseTactileModel):
         self.lstm = nn.LSTM(
             input_size=self.evetac_feats + self.base_feats,
             hidden_size=lstm_hidden_dim,
-            num_layers=1, # Fixed to 1 as requested
-            batch_first=True
+            num_layers=1,  # Fixed to 1 as requested
+            batch_first=True,
         )
 
         # 2. Decision Maker (MLP)
@@ -63,7 +64,7 @@ class TactileLSTMVector(BaseTactileModel):
         # Pass through LSTM
         # hn is the last hidden state: (num_layers, Batch, lstm_hidden_dim)
         _, (hn, _) = self.lstm(combined_seq)
-        
+
         # Use the hidden state from the last (and only) layer
         out = self.net(hn[-1])
 

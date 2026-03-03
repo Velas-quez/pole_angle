@@ -12,14 +12,18 @@ from src.models.datasets import TactileVectorDataset
 # Importing the heavy lifting from your original file
 from .statistical_multi_quads_strategy import extract_and_prepare_parquet
 
+
 class SlidingWindowQuadsStrategy(BaseStrategy):
     """
-    Temporal strategy that concatenates features from the current time (t) 
+    Temporal strategy that concatenates features from the current time (t)
     and the two previous steps (t-1, t-2).
     """
+
     name: str = "sliding_window_quads"
 
-    def __init__(self, quad_width: float = 1, quad_height: float = 1, window_size: int = 3):
+    def __init__(
+        self, quad_width: float = 1, quad_height: float = 1, window_size: int = 3
+    ):
         self.quad_width = quad_width
         self.quad_height = quad_height
         self.window_size = window_size
@@ -35,12 +39,14 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
         df_all = extract_and_prepare_parquet(
             evtac_path, markers_path, opti_path, self.quad_width, self.quad_height
         )
-        
+
         # 2. Apply Temporal Windowing per Bag to avoid data leakage
         temporal_results = []
         bags = df_all["bag_name"].unique()
 
-        print(f"🔄 Applying temporal windowing (size {self.window_size}) across {len(bags)} bags...")
+        print(
+            f"🔄 Applying temporal windowing (size {self.window_size}) across {len(bags)} bags..."
+        )
 
         for bag in bags:
             df_bag = df_all[df_all["bag_name"] == bag].copy()
@@ -51,7 +57,11 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
             # Define column groups
             target_cols = ["target_x", "target_y", "target_z"]
             # Features are everything else (evetac stats + base orientation)
-            feature_cols = [c for c in df_bag.columns if c.startswith("evetac_") or c.startswith("base_")]
+            feature_cols = [
+                c
+                for c in df_bag.columns
+                if c.startswith("evetac_") or c.startswith("base_")
+            ]
 
             # Create the shifts
             # t0 = current, t1 = previous (t-1), t2 = two back (t-2)
@@ -71,11 +81,11 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
 
             # 3. Drop the first 2 rows (they contain NaNs because they have no history)
             df_temporal = df_temporal.dropna().reset_index(drop=True)
-            
+
             temporal_results.append(df_temporal)
 
         df_final = pd.concat(temporal_results, ignore_index=True)
-        
+
         # 4. Save
         output_dir = Path(output_base_dir) / self.get_dirname()
         output_dir.mkdir(parents=True, exist_ok=True)
