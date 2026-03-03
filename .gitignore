@@ -19,3 +19,4 @@ uv.lock
 *.db
 src/mlruns/
 src/outputs/
+results/
