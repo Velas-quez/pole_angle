@@ -1,7 +1,9 @@
 # conf/processing_config.yaml
 defaults:
   - _self_
-  - strategies: sliding_window_quads # This points to conf/strategies/sliding_window.yaml
+  - strategies: statistical_multi_quads_strategy
+
+ # This points to conf/strategies/sliding_window.yaml
 
 # Diretórios de Entrada
 input:
