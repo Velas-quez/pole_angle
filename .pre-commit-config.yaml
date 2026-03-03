@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        files: ^src/  # <--- Filtro para a pasta src
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.2.1
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+        files: ^src/  # <--- Filtro para a pasta src
+      - id: ruff-format
+        files: ^src/

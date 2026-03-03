@@ -14,9 +14,9 @@ data:
     test: "data/test/processed/"
   pre_processed:
     train:
-      evtac: "data/train/preprocessed/evtac.parquet"
-      markers: "data/train/preprocessed/markers.parquet"
-      opti: "data/train/preprocessed/optitrack.parquet"
+      evtac: "data/train/preprocessed_mix/evtac.parquet"
+      markers: "data/train/preprocessed_mix/markers.parquet"
+      opti: "data/train/preprocessed_mix/optitrack.parquet"
     test:
       evtac: "data/test/preprocessed/evtac.parquet"
       markers: "data/test/preprocessed/markers.parquet"

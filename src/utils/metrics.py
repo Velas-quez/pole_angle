@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -35,3 +36,24 @@ def quaternion_geodesic_deg(pred_q, target_q, eps: float = 1e-8):
     dot = torch.sum(pred * target, dim=1).abs().clamp(-1.0 + eps, 1.0 - eps)
     angle_rad = 2.0 * torch.acos(dot)
     return torch.rad2deg(angle_rad)
+
+
+class VariancePenalizedCosineLoss(nn.Module):
+    def __init__(self, std_weight=1.0):
+        super().__init__()
+        # reduction='none' retorna um vetor com a loss de CADA amostra do batch
+        self.cosine_loss = nn.CosineEmbeddingLoss(reduction="none")
+        self.std_weight = std_weight
+
+    def forward(self, outputs, targets, labels):
+        # Calcula a loss de cada amostra no batch. Shape: (Batch_Size,)
+        sample_losses = self.cosine_loss(outputs, targets, labels)
+
+        # Média padrão (o que o PyTorch faria normalmente)
+        mean_loss = sample_losses.mean()
+
+        # Desvio padrão dos erros no batch
+        std_loss = sample_losses.std()
+
+        # A nova Loss penaliza tanto a média alta quanto a alta variância
+        return mean_loss + (self.std_weight * std_loss)

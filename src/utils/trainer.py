@@ -1,5 +1,7 @@
 from __future__ import annotations
 import copy
+import signal
+from types import FrameType
 from dataclasses import dataclass
 from typing import Dict, Any, Callable
 
@@ -12,8 +14,11 @@ from omegaconf import DictConfig
 
 from src.models.base_model import BaseTactileModel
 from src.tactile_types import TactileInput
+from src.utils.metrics import VariancePenalizedCosineLoss
 
 # --- TIPAGEM DA CONFIGURAÇÃO (Refletindo o teu config.yaml) ---
+
+CRITERION_WITH_LABELS = (nn.CosineEmbeddingLoss, VariancePenalizedCosineLoss)
 
 
 @dataclass
@@ -50,7 +55,7 @@ class FullTrainConfig(DictConfig):
     experiment_name: str
 
 
-# --- LOOP DE TREINAMENTO ---
+stop_training = False
 
 
 def run_training_loop(
@@ -80,7 +85,13 @@ def run_training_loop(
     best_val_loss = float("inf")
     best_model_wts = copy.deepcopy(model.state_dict())
 
+    global stop_training
+
+    signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
+
     for epoch in range(cfg.training.epochs):
+        if stop_training:
+            break
         print(f"\nStarting epoch {epoch + 1}/{cfg.training.epochs}...", flush=True)
         # --- PHASE: TRAINING ---
         model.train()
@@ -224,7 +235,7 @@ def run_training_loop(
 
 
 def get_loss_args_fn(criterion: nn.Module) -> Callable:
-    if isinstance(criterion, nn.CosineEmbeddingLoss):
+    if isinstance(criterion, CRITERION_WITH_LABELS):
         return _loss_args_with_labels
     return _loss_args_without_labels
 
@@ -245,3 +256,9 @@ def angle_diff_deg(vec1: torch.Tensor, vec2: torch.Tensor) -> torch.Tensor:
 
     cos_sim = torch.sum(v1 * v2, dim=1).clamp(-1.0, 1.0)
     return torch.rad2deg(torch.acos(cos_sim))
+
+
+def signal_handler(signum: int, frame: FrameType | None) -> None:
+    global stop_training
+    print("\nReceived stop signal. Saving model and exiting training early...")
+    stop_training = True
