@@ -1,7 +1,7 @@
 from __future__ import annotations
 import copy
 from dataclasses import dataclass
-from typing import TypedDict, List, Dict, Any, Optional, Callable
+from typing import Dict, Any, Callable
 
 import torch
 import torch.nn as nn
@@ -12,6 +12,7 @@ from omegaconf import DictConfig
 
 from src.models.base_model import BaseTactileModel
 from src.tactile_types import TactileInput
+
 # --- TIPAGEM DA CONFIGURAÇÃO (Refletindo o teu config.yaml) ---
 
 
@@ -88,7 +89,7 @@ def run_training_loop(
         train_seen = 0
 
         for batch_idx, (batch_x, batch_y) in enumerate(train_loader):
-            inputs: TactileInput = {k: v.to(device) for k, v in batch_x.items()}
+            inputs = TactileInput(**{k: v.to(device) for k, v in batch_x.items()})
             targets = batch_y.to(device)
 
             optimizer.zero_grad()
@@ -136,7 +137,6 @@ def run_training_loop(
         val_running_loss = 0.0
         val_errors = []
         val_seen = 0
-
 
         with torch.no_grad():
             for batch_idx, (batch_x, batch_y) in enumerate(val_loader):
@@ -210,7 +210,7 @@ def run_training_loop(
             best_val_loss = epoch_val_loss
             best_model_wts = copy.deepcopy(model.state_dict())
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1 == 0:
             print(
                 f"Epoch {epoch + 1} | Val Loss: {epoch_val_loss:.4f} | "
                 f"Val Angle Err: {epoch_val_angle_mean:.2f}° (±{epoch_val_angle_std:.2f}°) | LR: {current_lr}"

@@ -1,8 +1,6 @@
-from typing import List, Optional, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple
 import torch
 import torch.nn as nn
-import hydra
-from omegaconf import DictConfig
 from src.models.base_model import BaseTactileModel
 from src.tactile_types import TactileInput
 

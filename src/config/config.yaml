@@ -2,13 +2,15 @@
 
 defaults:
   - _self_
-  - models: mlp_config # This points to conf/models/feat_mlp.yaml
+  - models: feat_mlp # This points to conf/models/feat_mlp.yaml
   - strategies: statistical_multi_quads_strategy
+
+ # This points to conf/strategies/sliding_window.yaml
   - targets: vector 
 
 experiment_name: "Pole_Balancing_MLP_Vector"
 use_gpu: true
-resume_run_id: 186842e5e8c54dbabbe451385853d88a
+resume_run_id: null
 
 data:
   processed_dir:
@@ -28,7 +30,7 @@ data:
 
 training:
   batch_size: 128
-  epochs: 200
+  epochs: 500
   use_gpu: true # Replaces the 'cuda' if check in code
   scale_evtac: true
   optimizer:
@@ -41,4 +43,16 @@ training:
     _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
     mode: 'min'      # Queremos que o LR caia quando a loss parar de diminuir
     factor: 0.5      # Corta o LR pela metade
-    patience: 6     
+    patience: 6   
+
+
+test:
+  # 1. Copy the Run ID from your MLflow UI here
+  run_id: "d0c0747e37f64cb9a93a0aaa6a510a12" 
+  
+  # 2. Where the graphs will be saved
+  output_dir: "results/test_plots/${test.run_id}"
+  
+  visuals:
+    save_plots: true
+    show_plots: true # Set to false if running on a server without a display

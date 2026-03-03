@@ -3,6 +3,8 @@ defaults:
   - _self_
   - strategies: statistical_multi_quads_strategy
 
+ # This points to conf/strategies/sliding_window.yaml
+
 # Diretórios de Entrada
 input:
   dir: "data/train/preprocessed/"

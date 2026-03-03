@@ -166,5 +166,5 @@ def create_loaders(
         val_ds, batch_size=batch_size, shuffle=False, pin_memory=True
     )
 
-    print(f"✅ Loaders com Dual Scalers prontos.")
+    print("✅ Loaders com Dual Scalers prontos.")
     return train_loader, val_loader, scaler_evetac, scaler_base

@@ -236,7 +236,9 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             else:
                 evtac_entry = self._extract_sparse_evtac_frame(row)
             pos_t = np.asarray(pos_interp(ts), dtype=np.float64)
-            quat_t = _normalize_quaternion(np.asarray(quat_interp(ts), dtype=np.float64))
+            quat_t = _normalize_quaternion(
+                np.asarray(quat_interp(ts), dtype=np.float64)
+            )
             rot_base = R.from_quat(quat_t)
 
             world_vec = np.asarray(marker_interp(ts), dtype=np.float64)
@@ -252,7 +254,9 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             target_quat = _vector_to_quaternion(local_vec)
 
             frame_evtac.append(evtac_entry)
-            frame_base.append(np.concatenate([pos_t, quat_t], axis=0).astype(np.float32))
+            frame_base.append(
+                np.concatenate([pos_t, quat_t], axis=0).astype(np.float32)
+            )
             frame_target_quat.append(target_quat)
 
         n_frames = len(frame_evtac)
