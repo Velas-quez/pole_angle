@@ -1,7 +1,7 @@
 _target_: src.processing.strategies.temporal_evtac_pose_quat_strategy.TemporalEvtacPoseQuatStrategy
 
 window_size: 10
-downsample_factor: 4
+downsample_factor: 16
 crop_seconds: 2.0
 min_nnz: 1
 materialize_dense_evtac: false
