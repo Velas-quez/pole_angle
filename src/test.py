@@ -8,6 +8,8 @@ import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from mpl_toolkits.mplot3d import Axes3D
 from omegaconf import DictConfig
 
 # Add the root directory to path to import src
@@ -43,92 +45,114 @@ def test(cfg: DictConfig):
         target_cols=list(cfg.targets.columns)
     )
 
-    # 4. Load MLflow Artifacts (Model and Training Scalers)
-    print(f"📦 Loading model and scalers from run: {run_id}")
+    # 4. Load MLflow Artifacts
+    print(f"📦 Loading artifacts from run: {run_id}")
     mlflow.set_tracking_uri(Path("mlruns").resolve().as_uri())
     
-    # Load model
     model = mlflow.pytorch.load_model(f"runs:/{run_id}/model").to(device)
     model.eval()
 
-    # Load Scalers used during TRAINING
     uri_evetac = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path="scaler_evetac.pkl")
     uri_base = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path="scaler_base.pkl")
     scaler_evetac = joblib.load(uri_evetac)
     scaler_base = joblib.load(uri_base)
 
-    # 5. Prepare Input and Inference
-    # Handle dimension mismatch if the scaler expects individual frames vs concatenated windows
+    # 5. Scaling and Inference
     try:
         evetac_scaled = scaler_evetac.transform(data_dict["evetac"])
         base_scaled = scaler_base.transform(data_dict["base"])
     except ValueError:
-        print("⚠️ Dimension mismatch detected. Reshaping data for the scaler...")
-        # Get expected features from scaler (e.g., 320)
+        print("⚠️ Dimension mismatch. Reshaping for scaler...")
         expected_feats = scaler_evetac.n_features_in_
-        
-        # Flatten and scale evetac
         samples, total_feats = data_dict["evetac"].shape
-        evetac_reshaped = data_dict["evetac"].reshape(-1, expected_feats)
-        evetac_scaled = scaler_evetac.transform(evetac_reshaped).reshape(samples, total_feats)
+        evetac_scaled = scaler_evetac.transform(data_dict["evetac"].reshape(-1, expected_feats)).reshape(samples, total_feats)
         
-        # Flatten and scale base
         expected_base_feats = scaler_base.n_features_in_
         base_samples, total_base_feats = data_dict["base"].shape
-        base_reshaped = data_dict["base"].reshape(-1, expected_base_feats)
-        base_scaled = scaler_base.transform(base_reshaped).reshape(base_samples, total_base_feats)
+        base_scaled = scaler_base.transform(data_dict["base"].reshape(-1, expected_base_feats)).reshape(base_samples, total_base_feats)
 
     X_evetac = torch.tensor(evetac_scaled, dtype=torch.float32).to(device)
     X_base = torch.tensor(base_scaled, dtype=torch.float32).to(device)
-    y_true = data_dict["target"] # already numpy
+    y_true = data_dict["target"]
 
     with torch.no_grad():
-        tactile_in = {"evetac": X_evetac, "base": X_base}
-        y_pred = model(tactile_in).cpu().numpy()
+        model_input = {"evetac": X_evetac, "base": X_base}
+        y_pred = model(model_input).cpu().numpy()
 
-    # 6. Calculate Angular Error (in degrees)
-    # Error = arccos(dot_product(pred, true))
+    # 6. Metrics
     dot_product = np.sum(y_pred * y_true, axis=1)
     dot_product = np.clip(dot_product, -1.0, 1.0)
     errors_deg = np.rad2deg(np.arccos(dot_product))
 
-    # 7. Visualization
-    generate_plots(y_true, y_pred, errors_deg, cfg.test.output_dir)
+    # 7. Plots and Animation
+    output_path = Path(cfg.test.output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    generate_static_plots(errors_deg, str(output_path))
+    animate_pole_merged(y_true, y_pred, str(output_path))
 
-def generate_plots(y_true, y_pred, errors, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
+def generate_static_plots(errors, output_dir):
     time_steps = np.arange(len(errors))
+    plt.figure(figsize=(15, 5))
 
-    # Graph 1: Prediction vs Ground Truth (X Component example)
-    plt.figure(figsize=(12, 5))
-    plt.plot(time_steps, y_true[:, 0], label="Ground Truth (X)", color="blue", alpha=0.6)
-    plt.plot(time_steps, y_pred[:, 0], label="Predicted (X)", color="red", linestyle="--")
-    plt.title("Vector Tracking: Ground Truth vs Predicted (X-Axis)")
-    plt.xlabel("Time (steps)")
-    plt.ylabel("Normalized Value")
-    plt.legend()
-    plt.savefig(f"{output_dir}/tracking_comparison.png")
-
-    # Graph 2: Angular Error over time
-    plt.figure(figsize=(12, 5))
-    plt.plot(time_steps, errors, color="purple", label="Angular Error")
+    # Subplot 1: Angular Error over time
+    plt.subplot(1, 2, 1)
+    plt.plot(time_steps, errors, color="purple", label="Error")
     plt.axhline(y=np.mean(errors), color='gray', linestyle='--', label=f'Mean: {np.mean(errors):.2f}°')
-    plt.title("Angular Error During Test Scenario")
-    plt.xlabel("Time (steps)")
-    plt.ylabel("Error (Degrees °)")
-    plt.legend()
-    plt.savefig(f"{output_dir}/error_over_time.png")
+    plt.title("Angular Error over Time")
+    plt.xlabel("Step"); plt.ylabel("Degrees (°)"); plt.legend()
 
-    # Graph 3: Error Distribution Histogram
-    plt.figure(figsize=(8, 6))
+    # Subplot 2: Error Distribution
+    plt.subplot(1, 2, 2)
     plt.hist(errors, bins=50, color='green', edgecolor='black', alpha=0.7)
-    plt.title("Angular Error Distribution")
-    plt.xlabel("Error (Degrees °)")
-    plt.ylabel("Frequency")
-    plt.savefig(f"{output_dir}/error_histogram.png")
+    plt.title("Error Distribution")
+    plt.xlabel("Degrees (°)"); plt.ylabel("Frequency")
 
-    print(f"✨ Test finished. Plots saved in: {output_dir}")
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/metrics_dashboard.png")
+    print(f"📊 Metrics saved in: {output_dir}")
+
+def animate_pole_merged(y_true, y_pred, output_dir):
+    # Setup for 30s GIF @ 20fps (600 frames)
+    fps = 20
+    target_frames = 600
+    step = max(1, len(y_true) // target_frames)
+    
+    y_true_ds = y_true[::step][:target_frames]
+    y_pred_ds = y_pred[::step][:target_frames]
+    
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_title("Pole Tracking: Real (Blue) vs Predicted (Red)")
+
+    # Merged lines in one plot
+    line_true, = ax.plot([], [], [], color='blue', linewidth=4, label='Real', alpha=0.6)
+    line_pred, = ax.plot([], [], [], color='red', linewidth=3, label='Predicted', linestyle='--')
+
+    ax.set_xlim([-1, 1]); ax.set_ylim([-1, 1]); ax.set_zlim([0, 1])
+    ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
+    ax.legend(loc='upper right')
+    ax.view_init(elev=20, azim=45)
+
+    def init():
+        line_true.set_data([], []); line_true.set_3d_properties([])
+        line_pred.set_data([], []); line_pred.set_3d_properties([])
+        return line_true, line_pred
+
+    def update(num):
+        line_true.set_data([0, y_true_ds[num, 0]], [0, y_true_ds[num, 1]])
+        line_true.set_3d_properties([0, y_true_ds[num, 2]])
+        line_pred.set_data([0, y_pred_ds[num, 0]], [0, y_pred_ds[num, 1]])
+        line_pred.set_3d_properties([0, y_pred_ds[num, 2]])
+        return line_true, line_pred
+
+    ani = animation.FuncAnimation(fig, update, frames=len(y_true_ds), 
+                                  init_func=init, blit=True, interval=1000/fps)
+
+    save_path = f"{output_dir}/pole_merged_comparison.gif"
+    ani.save(save_path, writer='pillow', fps=fps)
+    print(f"✨ Animation saved to: {save_path}")
+    plt.close()
 
 if __name__ == "__main__":
     test()
