@@ -70,9 +70,12 @@ Pole balancing is a classic benchmark in control theory and robotics, requiring 
 
 Our primary contribution is twofold: (i) an efficient statistical strategy for event-feature extraction using multi-quadrant spatial pooling, and (ii) an empirical evaluation of different output head geometries for orientation estimation, providing a generalized framework for evaluating regression models in 3D space.
 
+\section{Background}
+-evtac sensor, (not us)
 \section{Related Work}
 - evtac e como ele coleta dados
 - trabalhos q tentam estimar angulo do pole de diversas formas.
+- tactile pose estimation
 \section{Methodology}
 \subsection{Problem Formulation}
 - o objetivo final é equilibrar o pole.
@@ -80,12 +83,19 @@ Our primary contribution is twofold: (i) an efficient statistical strategy for e
 - queremos prever a orientação do POLE.
 - com isso, podemos usar controladores clássicos para manter o equilíbrio.
 \subsection{Data Collection and Pre-processing}
-- optamos por coletar dados humanos para treinar o modelo, pois
-- coletamos dados de 2 pessoas, em varias gravações
-- usamos o optitrack de ground-truth
-- deixamos uma bag exclusiva para teste que não entra nem pra treino nem validação
-- usamos os mesmos dados para treinar todos os modelos
-- pre-processamos todos os dados transofrmando, deixando as colunas x, y e z. e o evtac esparso.
+\paragraph{Data Collection.}
+We opted to collect real human data to train the proposed model in order to capture realistic interaction dynamics, sensor noise, and natural variability that cannot be fully reproduced in simulation. The dataset was recorded from two different participants across multiple recording sessions to increase variability and reduce subject-specific bias.
+
+Ground-truth measurements of the pole angle were obtained using an \textit{OptiTrack} motion capture system, which provides accurate 3D pose estimation. The motion capture data was temporally synchronized with the tactile sensor readings to ensure alignment between input signals and target labels.
+
+To ensure a fair and unbiased evaluation, one complete rosbag recording was reserved exclusively for testing. This bag was not used during training or validation. The remaining data were split into training and validation sets. All evaluated models were trained and validated using exactly the same data splits to guarantee a consistent comparison.
+
+\paragraph{Pre-processing.}
+All recorded data underwent a standardized pre-processing pipeline. The 3D pose information was converted into Cartesian coordinates, and only the $x$, $y$, and $z$ components were retained for downstream processing.
+
+The tactile sensor (Evtac) data were represented as sparse matrices, where inactive pixels and activated pixels were encoded according to the sensor specification. The sparse representation was preserved to maintain computational efficiency and reduce memory usage.
+
+Finally, all input features and corresponding ground-truth labels were temporally aligned and formatted into fixed-length sequences suitable for model training.
 \subsection{Metrics}
 \subsubsection{Loss Functions}
 For the angular representation, standard Mean Squared Error (MSE) is applied. For the vectorial representation, we employ the Cosine Embedding Loss, defined as:
@@ -118,7 +128,7 @@ We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
 \section{Results}
 - resultados de cada experimento
 - discussão em cima disso
-\section{Conclusion}
+\section{Conclusion and feature work}
 Our findings suggest that vectorial representation is significantly more robust for high-frequency tactile feedback in pole balancing tasks. The event-based statistical pooling strategy successfully balances low latency with sufficient spatial acuity. Future work will explore the integration of Recurrent Neural Networks (RNNs) and Spiking Neural Networks (SNNs) to capture the temporal dynamics of the event stream natively.
 
 
