@@ -63,12 +63,31 @@
     Precise estimation of object orientation from tactile feedback is critical for robotic manipulation, particularly in scenarios where visual sensing is unreliable or unavailable. We study 3D pole orientation estimation from high-resolution tactile time-series data, motivated by tactile-based pole balancing, and formulate the problem as regression on the unit sphere $S^2$. Direct learning from raw tactile pressure maps is challenged by high dimensionality and spatial redundancy, which we address through a Statistical Multi-Quad encoding that aggregates activations into structured spatial-statistical features at multiple resolutions. Ground-truth orientation vectors are computed from optical marker data via Singular Value Decomposition (SVD), and evaluation employs strict temporal splits across recording sessions to prevent interpolation-induced leakage. We compare memoryless, short-term temporal, and long-horizon sequence models under multiple target parameterizations. Our results show that \textbf{[BEST MODEL CONFIGURATION]} achieves the lowest mean angular error of \textbf{[X.X$^\circ$]} on temporally separated recording sessions, highlighting the importance of structured tactile representations combined with temporal modeling for accurate and stable orientation regression.
     \end{abstract}
 
-\section{Introduction}
-\label{intro}
+    \section{Introduction}
+    \label{intro}
+    
+    Reliable estimation of object orientation is a fundamental requirement in robotic manipulation, particularly in contact-rich tasks where visual sensing is occluded or unreliable. While vision-based pose estimation has matured significantly, tactile sensing remains comparatively underexplored as a primary modality for high-precision orientation inference. Tactile signals inherently encode rich spatial and temporal information about contact geometry, force distribution, and object dynamics. Leveraging these signals for accurate orientation estimation is essential for tasks such as pole balancing, where small angular deviations critically affect stability.
+    
+    Despite recent advances in high-resolution tactile sensors, learning directly from raw tactile pressure maps presents significant challenges. The dimensionality of modern tactile arrays is high, spatial activations are redundant, and contact patterns evolve over time in structured but non-trivial ways. Naively applying deep models to flattened tactile matrices risks overparameterization, inefficient learning, and poor generalization. Moreover, improper train-test splitting in time-series tactile data can introduce interpolation-induced leakage, leading to overestimated performance.
+    
+    Previous work in tactile sensing has mostly focused on classification tasks such as slip detection, using either end-to-end convolutional models or handcrafted features. Few studies have systematically explored the combination of spatially structured aggregation with both non-temporal and temporal modeling for accurate 3D orientation regression. Because orientation lies on the unit sphere, both feature representations and evaluation metrics must respect the geometric structure of rotations. Our work addresses this gap by evaluating memoryless feature-based models, short-horizon temporal models, and long-horizon sequence models under a unified statistical encoding framework.
+    
+    This raises a natural question:
+    
+    \textbf{How can high-dimensional tactile signals be represented and modeled to enable accurate and stable 3D orientation regression under strict temporal generalization?}
+    
+    To answer this question, we introduce a Statistical Multi-Quad encoding that aggregates tactile activations into structured spatial-statistical features at multiple resolutions, reducing dimensionality while preserving geometric information. Ground-truth orientation vectors are derived via Singular Value Decomposition (SVD) from optical marker data, and evaluation is conducted using temporally disjoint recording sessions to prevent data leakage.
+    
+    Our key contributions are summarized as follows:
 
-Pole balancing is a classic benchmark in control theory and robotics, requiring precise and low-latency feedback to maintain an inherently unstable system. Traditional vision-based systems often suffer from motion blur and high latency, limiting their effectiveness in highly dynamic manipulation tasks. In this work, we leverage neuromorphic tactile sensing, which provides asynchronous, event-based data with microsecond resolution.
+    \begin{enumerate}
+        \item We formalize tactile-based pole orientation estimation as a regression problem on the unit sphere, enabling geometrically consistent evaluation through angular error metrics.
+        
+        \item We introduce a Statistical Multi-Quad encoding that aggregates tactile activations into spatial-statistical features at multiple resolutions, providing an efficient representation of high-dimensional tactile signals.
+        
+        \item We perform a systematic comparison of memoryless and temporal neural architectures for tactile orientation regression under temporally disjoint evaluation protocols.
+    \end{enumerate}
 
-Our primary contribution is twofold: (i) an efficient statistical strategy for event-feature extraction using multi-quadrant spatial pooling, and (ii) an empirical evaluation of different output head geometries for orientation estimation, providing a generalized framework for evaluating regression models in 3D space.
 
 \section{Background}
 -evtac sensor, (not us)
