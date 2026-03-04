@@ -70,51 +70,57 @@ Pole balancing is a classic benchmark in control theory and robotics, requiring 
 
 Our primary contribution is twofold: (i) an efficient statistical strategy for event-feature extraction using multi-quadrant spatial pooling, and (ii) an empirical evaluation of different output head geometries for orientation estimation, providing a generalized framework for evaluating regression models in 3D space.
 
-\section{System Architecture}
-
-\subsection{Feature Extraction: Spatial Quadrants}
-Processing raw event streams is computationally expensive for high-frequency control loops. We introduce the \textit{Statistical Multi-Quads Strategy}, which partitions the tactile sensor array into $N$ rectangular spatial quadrants. For each quadrant, we compute the statistical moments (e.g., mean, variance) of the tactile events over a fixed temporal window. This spatial pooling reduces the dimensionality of the input while preserving localized force distributions.
-
-\subsection{Early Fusion MLP}
-The proposed model, \texttt{TactileMLPVector}, receives a dual input stream:
-\begin{itemize}
-    \item \textbf{Tactile Stream ($\mathbf{x}_{evtac}$):} Flattened statistical features extracted from the multi-quadrant processing.
-    \item \textbf{Robot State ($\mathbf{x}_{base}$):} The current proprioceptive state of the robotic manipulator, including joint positions and velocities.
-\end{itemize}
-
-These features undergo early fusion via concatenation, forming a single latent vector $\mathbf{z} = [\mathbf{x}_{evtac}, \mathbf{x}_{base}]$. The vector is then processed by a multi-layer perceptron equipped with Batch Normalization, Dropout, and ReLU activations.
-
-\subsection{Output Representations}
-We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
-\begin{enumerate}
-    \item \textbf{Vectorial Head:} Predicts a 3D vector $\hat{\mathbf{v}} \in \mathbb{R}^3$, followed by an $L_2$ normalization layer to guarantee a unit direction vector $||\hat{\mathbf{v}}|| = 1$.
-    \item \textbf{Angular Head:} Predicts Euler angles $(\hat{\phi}, \hat{\theta})$, representing azimuth and elevation.
-\end{enumerate}
-
-\section{Training Methodology}
-
-\subsection{Loss Functions}
+\section{Related Work}
+- evtac e como ele coleta dados
+- trabalhos q tentam estimar angulo do pole de diversas formas.
+\section{Methodology}
+\subsection{Problem Formulation}
+- o objetivo final é equilibrar o pole.
+- temos as informações de estado do robo, e os eventos do sensor tátil.
+- queremos prever a orientação do POLE.
+- com isso, podemos usar controladores clássicos para manter o equilíbrio.
+\subsection{Data Collection and Pre-processing}
+- optamos por coletar dados humanos para treinar o modelo, pois
+- coletamos dados de 2 pessoas, em varias gravações
+- usamos o optitrack de ground-truth
+- deixamos uma bag exclusiva para teste que não entra nem pra treino nem validação
+- usamos os mesmos dados para treinar todos os modelos
+- pre-processamos todos os dados transofrmando, deixando as colunas x, y e z. e o evtac esparso.
+\subsection{Metrics}
+\subsubsection{Loss Functions}
 For the angular representation, standard Mean Squared Error (MSE) is applied. For the vectorial representation, we employ the Cosine Embedding Loss, defined as:
 \begin{equation}
 \mathcal{L}(\mathbf{v}, \hat{\mathbf{v}}) = 1 - \cos(\mathbf{v}, \hat{\mathbf{v}})
 \end{equation}
 By setting the target similarity to $1$, this loss directly optimizes the alignment between the predicted and ground truth orientation vectors. 
 
-\subsection{Universal Metric: Mean Angular Error}
+\subsubsection{Universal Metric: Mean Angular Error}
 Comparing an angular model against a vectorial model requires an agnostic evaluation metric. We introduce a decoupled post-processing function that maps any model output back to a 3D unit vector. Performance is universally tracked using the \textit{Mean Angular Error} ($\text{MAE}_{\text{deg}}$):
 \begin{equation}
 \text{MAE}_{\text{deg}} = \frac{180}{\pi} \frac{1}{M} \sum_{i=1}^M \arccos \left( \operatorname{clamp}(\hat{\mathbf{v}}_i \cdot \mathbf{v}_i, -1, 1) \right)
 \end{equation}
 where $M$ is the batch size. This formulation provides a physically interpretable measure of the network's spatial deviation.
 
-\section{Experiments and Results}
+\subsubsection{Output Representations}
+We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
+\begin{enumerate}
+    \item \textbf{Vectorial Head:} Predicts a 3D vector $\hat{\mathbf{v}} \in \mathbb{R}^3$, followed by an $L_2$ normalization layer to guarantee a unit direction vector $||\hat{\mathbf{v}}|| = 1$.
+    \item \textbf{Angular Head:} Predicts Euler angles $(\hat{\phi}, \hat{\theta})$, representing azimuth and elevation.
+\end{enumerate}
 
-The models were trained using the AdamW optimizer with a Reduce-LROnPlateau scheduler. Hyperparameter tuning and model tracking were managed via Hydra and MLflow, ensuring strict decoupling between the model definition and the training loop. 
-
-\textit{[Insert experimental results here. Focus on the validation $\text{MAE}_{\text{deg}}$ comparison between the Euler and Vectorial approaches, and the inference time of the Multi-Quads strategy.]}
-
+\subsection{Arquitectures}
+- explicar todas as arquiteturas e modelos usados.
+\subsection{Framework}
+- explicar o frameork que criamos, e a importãncia dele
+- The models were trained using the AdamW optimizer with a Reduce-LROnPlateau scheduler. Hyperparameter tuning and model tracking were managed via Hydra and MLflow, ensuring strict decoupling between the model definition and the training loop. 
+\section{Experiments}
+- explicar as combinações feitas dos modelos, valores utilizados e porque.
+\section{Results}
+- resultados de cada experimento
+- discussão em cima disso
 \section{Conclusion}
 Our findings suggest that vectorial representation is significantly more robust for high-frequency tactile feedback in pole balancing tasks. The event-based statistical pooling strategy successfully balances low latency with sufficient spatial acuity. Future work will explore the integration of Recurrent Neural Networks (RNNs) and Spiking Neural Networks (SNNs) to capture the temporal dynamics of the event stream natively.
+
 
 \bibliography{example_paper}
 \bibliographystyle{icml2025}
