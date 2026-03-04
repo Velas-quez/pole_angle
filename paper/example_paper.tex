@@ -89,8 +89,33 @@
     \end{enumerate}
 
 
-\section{Background}
--evtac sensor, (not us)
+    \section{Background}
+
+    \subsection{Event-Based Optical Tactile Sensing}
+    
+    Optical tactile sensors measure contact by observing the deformation of a compliant elastomer through an internal camera. In contrast to RGB-based designs, event-based optical tactile sensors use neuromorphic cameras that asynchronously report pixel-level intensity changes. The EvETac sensor replaces a standard frame-based camera with an event-based camera, enabling high temporal resolution while maintaining fine spatial detail. Marker tracking algorithms reconstruct elastomer deformation from sparse event streams at rates up to 1000 Hz.
+    
+    In this design, tactile measurements resemble images defined over the sensor surface. Each contact produces a spatial activation pattern corresponding to local pressure and shear forces. Consequently, a single tactile snapshot consists of hundreds of spatially distributed measurements, yielding high-dimensional signals. Over time, these spatial patterns evolve according to object motion and contact dynamics, forming structured tactile time-series data.
+    
+    \subsection{Sparse Polarity-Based Tactile Signals}
+
+    Each tactile measurement is represented as a spatial map whose entries take values in $\{-1, 0, +1\}$, corresponding to negative events, no change, and positive events, respectively. Due to the event-based sensing mechanism, the majority of entries are zero at any given time step, yielding highly sparse activation patterns.
+    
+    Positive and negative events encode distinct local deformation dynamics of the elastomer surface. Consequently, the tactile signal forms a sparse signed spatial field rather than a dense pressure image. Directly flattening this representation leads to high-dimensional vectors dominated by zeros and ignores meaningful spatial organization.
+    
+    To extract informative structure while reducing dimensionality, spatial events can be aggregated into statistical descriptors. Computing quantities such as centroids, spatial dispersion, and event counts—either jointly or separately for positive and negative activations—provides a compact summary of contact geometry while preserving polarity-specific information.
+    
+    \subsection{Orientation Representation on the Unit Sphere}
+    
+    We represent pole orientation as a 3D unit vector $\mathbf{v} \in \mathbb{R}^3$ satisfying $\|\mathbf{v}\|_2 = 1$. The set of all such vectors defines the unit sphere $S^2$. Formulating orientation estimation as regression on $S^2$ ensures a continuous and non-redundant representation, avoiding discontinuities inherent in Euler angles.
+    
+    Given a predicted vector $\hat{\mathbf{v}}$ and ground truth $\mathbf{v}$, performance is evaluated using angular error:
+    \[
+    \theta = \arccos \left( \hat{\mathbf{v}}^\top \mathbf{v} \right).
+    \]
+    
+    This metric directly measures rotational discrepancy in degrees and respects the geometry of the sphere.
+
 \section{Related Work}
 - evtac e como ele coleta dados
 - trabalhos q tentam estimar angulo do pole de diversas formas.
