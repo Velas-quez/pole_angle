@@ -30,7 +30,7 @@ data:
 
 training:
   batch_size: 128
-  epochs: 150
+  epochs: 100
   use_gpu: true # Replaces the 'cuda' if check in code
   scale_evtac: true
   split_ratio: 0.8

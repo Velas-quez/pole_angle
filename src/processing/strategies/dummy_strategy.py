@@ -5,6 +5,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 from src.tactile_types import TactileData
 from .base_strategy import BaseStrategy
@@ -29,7 +30,9 @@ class DummyStrategy(BaseStrategy):
     ) -> None:
         """Extrai apenas a quantidade de timestamps e calcula os targets correspondentes."""
         # 1. Carrega apenas as colunas vitais para não estourar a RAM
-        df_evtac = pd.read_parquet(evtac_path, columns=["timestamp", "bag_name"])
+        df_evtac = pd.read_parquet(
+            evtac_path, columns=["timestamp", "bag_name", "user"]
+        )
         df_markers = pd.read_parquet(markers_path)
         df_opti = pd.read_parquet(opti_path)
 
@@ -76,6 +79,7 @@ class DummyStrategy(BaseStrategy):
                 evtac_bag["timestamp"] <= t_end
             )
             target_timestamps = evtac_bag["timestamp"][mask].values
+            users = evtac_bag["user"][mask].values
 
             if len(target_timestamps) == 0:
                 continue
@@ -126,6 +130,7 @@ class DummyStrategy(BaseStrategy):
             df_bag = pd.DataFrame(
                 final_vec_targets, columns=["target_x", "target_y", "target_z"]
             )
+            df_bag["user"] = users
             all_episodes_results.append(df_bag)
 
         df_final = (
@@ -152,7 +157,10 @@ class DummyStrategy(BaseStrategy):
         evetac_dummy = np.zeros((num_samples, 1), dtype=np.float32)
         base_dummy = np.zeros((num_samples, 1), dtype=np.float32)
 
+        labelencoder = LabelEncoder()
+        users = labelencoder.fit_transform(df["user"])
         return TactileData(
+            user=np.array(users),
             evetac=evetac_dummy,
             base=base_dummy,
             target=df[target_cols].values.astype(np.float32),

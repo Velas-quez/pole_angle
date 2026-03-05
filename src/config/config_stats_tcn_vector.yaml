@@ -14,9 +14,9 @@ data:
     test: "data/test/processed/"
   pre_processed:
     train:
-      evtac: "data/train_mit_babs/preprocessed/evtac.parquet"
-      markers: "data/train_mit_babs/preprocessed/markers.parquet"
-      opti: "data/train_mit_babs/preprocessed/optitrack.parquet"
+      evtac: "data/train/preprocessed_mix_updated/evtac.parquet"
+      markers: "data/train/preprocessed_mix_updated/markers.parquet"
+      opti: "data/train/preprocessed_mix_updated/optitrack.parquet"
     test:
       evtac: "data/test/preprocessed/evtac.parquet"
       markers: "data/test/preprocessed/markers.parquet"
@@ -24,17 +24,17 @@ data:
 
 training:
   batch_size: 128
-  epochs: 100
+  epochs: 50
   use_gpu: true
   scale_evtac: true
   optimizer:
     _target_: torch.optim.AdamW
-    lr: 0.001
+    lr: 0.002
     weight_decay: 0.01
   criterion:
     _target_: torch.nn.CosineEmbeddingLoss
   scheduler:
     _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
     mode: "min"
-    factor: 0.5
+    factor: 0.8
     patience: 6

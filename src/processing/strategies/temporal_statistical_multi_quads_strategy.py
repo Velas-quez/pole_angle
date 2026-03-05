@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
+from sklearn.preprocessing import LabelEncoder  # <-- Importação do Encoder
 from torch.utils.data import Dataset
 
 from src.models.datasets import TactileSequenceDataset
@@ -65,6 +66,7 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
                 evetac=np.empty((0, self.window_size, 1), dtype=np.float32),
                 base=np.empty((0, self.window_size, 1), dtype=np.float32),
                 target=np.empty((0, 3), dtype=np.float32),
+                user=np.empty((0,), dtype=object),  # <-- Array vazio para user
             )
             print(f"⚠️ No valid frame-level data. Empty dataset saved to: {output_path}")
             return
@@ -76,6 +78,7 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
         seq_evtac: List[np.ndarray] = []
         seq_base: List[np.ndarray] = []
         seq_target: List[np.ndarray] = []
+        seq_user: List[str] = []  # <-- Lista para capturar os usuários
 
         bags = [b for b in df_all["bag_name"].unique() if b is not None]
         print(
@@ -90,12 +93,18 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
             evetac_arr = df_bag[evetac_cols].to_numpy(dtype=np.float32)
             base_arr = df_bag[base_cols].to_numpy(dtype=np.float32)
             target_arr = df_bag[target_cols].to_numpy(dtype=np.float32)
+            user_arr = df_bag["user"].to_numpy(
+                dtype=object
+            )  # <-- Extrai a coluna de usuários
 
             for end_idx in range(self.window_size - 1, len(df_bag), self.stride):
                 start_idx = end_idx - self.window_size + 1
                 seq_evtac.append(evetac_arr[start_idx : end_idx + 1])
                 seq_base.append(base_arr[start_idx : end_idx + 1])
                 seq_target.append(target_arr[end_idx])
+                seq_user.append(
+                    user_arr[end_idx]
+                )  # <-- Pega o user correspondente ao final da janela
 
         if not seq_target:
             evetac_out = np.empty(
@@ -103,20 +112,23 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
             )
             base_out = np.empty((0, self.window_size, len(base_cols)), dtype=np.float32)
             target_out = np.empty((0, 3), dtype=np.float32)
+            user_out = np.empty((0,), dtype=object)  # <-- Fallback
         else:
             evetac_out = np.stack(seq_evtac, axis=0).astype(np.float32)
             base_out = np.stack(seq_base, axis=0).astype(np.float32)
             target_out = np.stack(seq_target, axis=0).astype(np.float32)
+            user_out = np.array(seq_user, dtype=object)  # <-- Converte a lista em array
 
         np.savez_compressed(
             output_path,
             evetac=evetac_out,
             base=base_out,
             target=target_out,
+            user=user_out,  # <-- Salva no arquivo npz
         )
         print(
             f"✅ Saved temporal statistical dataset to {output_path} | "
-            f"evetac={evetac_out.shape}, base={base_out.shape}, target={target_out.shape}"
+            f"evetac={evetac_out.shape}, base={base_out.shape}, target={target_out.shape}, user={user_out.shape}"
         )
 
     def load_processed_data(
@@ -134,8 +146,16 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
         if not data_path.exists():
             raise FileNotFoundError(f"Processed dataset not found: {data_path}")
 
-        data = np.load(data_path)
+        # allow_pickle=True é obrigatório aqui porque o array 'user' contém strings (objetos)
+        data = np.load(data_path, allow_pickle=True)
+
+        # Encoder dos usuários
+        raw_users = data["user"]
+        labelencoder = LabelEncoder()
+        users_encoded = labelencoder.fit_transform(raw_users)
+
         return TactileData(
+            user=np.array(users_encoded),  # <-- Injeta na dataclass
             evetac=data["evetac"],
             base=data["base"],
             target=data["target"],

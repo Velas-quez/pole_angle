@@ -2,7 +2,7 @@ defaults:
   - _self_
   - models: cnn_tcn
   - strategies: temporal_evtac_pose_quat_strategy
-  - targets: quaternion
+  - targets: vector
 
 experiment_name: "Pole_Orientation_CNNTCN_Quaternion"
 use_gpu: true
@@ -14,27 +14,27 @@ data:
     test: "data/test/processed/"
   pre_processed:
     train:
-      evtac: "data/train/preprocessed/evtac.parquet"
-      markers: "data/train/preprocessed/markers.parquet"
-      opti: "data/train/preprocessed/optitrack.parquet"
+      evtac: "data/train/preprocessed_mix_updated/evtac.parquet"
+      markers: "data/train/preprocessed_mix_updated/markers.parquet"
+      opti: "data/train/preprocessed_mix_updated/optitrack.parquet"
     test:
       evtac: "data/test/preprocessed/evtac.parquet"
       markers: "data/test/preprocessed/markers.parquet"
       opti: "data/test/preprocessed/optitrack.parquet"
 
 training:
-  batch_size: 32
-  epochs: 200
+  batch_size: 64
+  epochs: 50
   use_gpu: true
   scale_evtac: false
   optimizer:
     _target_: torch.optim.AdamW
-    lr: 0.001
+    lr: 0.002
     weight_decay: 0.01
   criterion:
     _target_: src.models.model_cnn_tcn.QuaternionGeodesicLoss
   scheduler:
     _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
     mode: "min"
-    factor: 0.5
+    factor: 0.8
     patience: 6

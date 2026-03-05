@@ -4,12 +4,14 @@ import numpy as np
 import pandas as pd
 
 # Missing Scientific Imports
+from copy import deepcopy
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 
-from src.types import TactileData
+from src.tactile_types import TactileData
 from .base_strategy import BaseStrategy
 from src.models.datasets import TactileVectorDataset
 
@@ -35,7 +37,9 @@ class HandleOnlyStrategy(BaseStrategy):
         opti_path: str,
     ) -> pd.DataFrame:
         # 1. Load only necessary columns to save RAM (Crucial to avoid 'Killed' error)
-        df_evtac_full = pd.read_parquet(evtac_path, columns=["timestamp", "bag_name"])
+        df_evtac_full = pd.read_parquet(
+            evtac_path, columns=["timestamp", "bag_name", "user"]
+        )
         df_markers_full = pd.read_parquet(markers_path)
         df_opti_full = pd.read_parquet(opti_path)
 
@@ -79,6 +83,7 @@ class HandleOnlyStrategy(BaseStrategy):
 
             mask = (df_evtac["timestamp"] >= t_start) & (df_evtac["timestamp"] <= t_end)
             target_timestamps = df_evtac["timestamp"][mask].values
+            users = deepcopy(df_evtac["user"][mask].values)
 
             # 3. Physics Interpolation
             processed_markers = [
@@ -127,6 +132,7 @@ class HandleOnlyStrategy(BaseStrategy):
             df_bag[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
             df_bag[["base_vec_x", "base_vec_y", "base_vec_z"]] = np.array(base_vectors)
             df_bag[["target_x", "target_y", "target_z"]] = np.array(final_vec_targets)
+            df_bag["user"] = users
 
             all_episodes_results.append(df_bag)
             print(f"   ✅ Added {len(df_bag)} samples.")
@@ -160,8 +166,10 @@ class HandleOnlyStrategy(BaseStrategy):
 
         # Consistent dummy array for the tactile branch of the model
         evetac_dummy = np.zeros((len(df), 1))
-
+        labelencoder = LabelEncoder()
+        users = labelencoder.fit_transform(df["user"])
         return TactileData(
+            user=np.array(users),
             evetac=evetac_dummy,
             base=df[input_cols].values,
             target=df[target_cols].values,

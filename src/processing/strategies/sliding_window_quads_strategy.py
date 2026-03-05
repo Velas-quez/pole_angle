@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 
 from src.tactile_types import TactileData
@@ -78,6 +79,7 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
 
             # Assign targets from current time (t0)
             df_temporal[target_cols] = df_bag[target_cols].reset_index(drop=True)
+            df_temporal["user"] = df_bag["user"].values
 
             # 3. Drop the first 2 rows (they contain NaNs because they have no history)
             df_temporal = df_temporal.dropna().reset_index(drop=True)
@@ -102,7 +104,10 @@ class SlidingWindowQuadsStrategy(BaseStrategy):
         evetac_cols = [c for c in df.columns if "evetac_" in c]
         base_cols = [c for c in df.columns if "base_" in c]
 
+        labelencoder = LabelEncoder()
+        users = labelencoder.fit_transform(df["user"])
         return TactileData(
+            user=np.array(users),
             evetac=df[evetac_cols].values,
             base=df[base_cols].values,
             target=df[target_cols].values,

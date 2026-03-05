@@ -313,12 +313,8 @@ class StatisticalMultiQuadsStrategy(BaseStrategy):
         missing = [c for c in target_cols if c not in df.columns]
         if missing:
             raise ValueError(f"As colunas target {missing} não existem no Parquet!")
-        print("load_processed_data")
-        print(df["user"].unique())
         labelencoder = LabelEncoder()
         users = labelencoder.fit_transform(df["user"])
-        print(labelencoder.classes_)
-        print(labelencoder.transform(labelencoder.classes_))
         return TactileData(
             user=np.array(users),
             evetac=df[evetac_cols].values,

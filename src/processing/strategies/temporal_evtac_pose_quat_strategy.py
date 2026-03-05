@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
+from sklearn.preprocessing import LabelEncoder  # <-- Importação necessária
 from torch.utils.data import Dataset
 
 from src.models.datasets import TactileSequenceDataset, TactileSparseSequenceDataset
@@ -92,6 +94,7 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         all_evtac_seq: List[np.ndarray] = []
         all_base_seq: List[np.ndarray] = []
         all_targets: List[np.ndarray] = []
+        all_users: List[np.ndarray] = []  # <-- NOVA LISTA PARA USERS
 
         print(
             f"🔄 Processing {len(bags)} bags with temporal windows (T={self.window_size}, ds={self.downsample_factor})..."
@@ -113,7 +116,13 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
                 .sort_values("timestamp")
             )
 
-            bag_evtac_seq, bag_base_seq, bag_targets = self._build_bag_sequences(
+            # Recebendo o array de usuários
+            (
+                bag_evtac_seq,
+                bag_base_seq,
+                bag_targets,
+                bag_users,
+            ) = self._build_bag_sequences(
                 df_evtac=df_evtac, df_markers=df_markers, df_opti=df_opti
             )
             if len(bag_targets) == 0:
@@ -122,6 +131,7 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             all_evtac_seq.append(bag_evtac_seq)
             all_base_seq.append(bag_base_seq)
             all_targets.append(bag_targets)
+            all_users.append(bag_users)  # <-- GUARDANDO O ARRAY DA BAG
 
         output_dir = Path(output_base_dir) / self.get_dirname()
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -133,6 +143,7 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
                 evetac=self._empty_evtac_array(),
                 base=np.empty((0, self.window_size, 7), dtype=np.float32),
                 target=np.empty((0, 4), dtype=np.float32),
+                user=np.empty((0,), dtype=object),  # <-- ARRAY VAZIO PARA USER
                 evetac_is_sparse=np.array(
                     [0 if self.materialize_dense_evtac else 1], dtype=np.int8
                 ),
@@ -143,24 +154,27 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         evetac_arr = self._concat_evtac_batches(all_evtac_seq)
         base_arr = np.concatenate(all_base_seq, axis=0).astype(np.float32)
         target_arr = np.concatenate(all_targets, axis=0).astype(np.float32)
+        user_arr = np.concatenate(all_users, axis=0)  # <-- CONCATENANDO OS USERS
 
+        # Salvando tudo no npz
         np.savez_compressed(
             output_path,
             evetac=evetac_arr,
             base=base_arr,
             target=target_arr,
+            user=user_arr,  # <-- ENVIANDO PARA O ARQUIVO
             evetac_is_sparse=np.array(
                 [0 if self.materialize_dense_evtac else 1], dtype=np.int8
             ),
         )
         print(
             f"✅ Saved temporal dataset in {output_path} | "
-            f"evetac={evetac_arr.shape}, base={base_arr.shape}, target={target_arr.shape}"
+            f"evetac={evetac_arr.shape}, base={base_arr.shape}, target={target_arr.shape}, user={user_arr.shape}"
         )
 
     def _build_bag_sequences(
         self, df_evtac: pd.DataFrame, df_markers: pd.DataFrame, df_opti: pd.DataFrame
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  # <-- ATUALIZADO
         if df_evtac.empty or df_markers.empty or df_opti.empty:
             return self._empty_bag_arrays()
 
@@ -190,7 +204,6 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         if df_evtac.empty or df_markers.empty or df_opti.empty:
             return self._empty_bag_arrays()
 
-        # Marker direction interpolation in world frame
         marker_vec_arr = np.array(
             [estimate_pole_vector_from_row(row) for _, row in df_markers.iterrows()]
         )
@@ -218,7 +231,6 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             [[d["x"], d["y"], d["z"], d["w"]] for d in df_opti["orientation"]],
             dtype=np.float64,
         )
-        # Base orientation in x, y, z, considering the quaterion to rotate the vector (0,0,1)
         base_vec = R.from_quat(base_quat).apply(
             np.array([0.0, 0.0, 1.0], dtype=np.float64)
         )
@@ -230,6 +242,8 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         frame_evtac: List[Any] = []
         frame_base: List[np.ndarray] = []
         frame_target_quat: List[np.ndarray] = []
+        frame_target_vec: List[np.ndarray] = []
+        frame_user: List[str] = []  # <-- LISTA TEMPORÁRIA DE USERS
 
         for _, row in df_evtac.iterrows():
             if int(row.get("nnz", 0)) < self.min_nnz:
@@ -263,14 +277,15 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             frame_base.append(
                 np.concatenate(
                     [
-                        # pos_t,
-                        quat_t,
+                        # quat_t,
                         basevec_t,
                     ],
                     axis=0,
                 ).astype(np.float32)
             )
             frame_target_quat.append(target_quat)
+            frame_target_vec.append(local_vec)
+            frame_user.append(row["user"])  # <-- COLETANDO O USER DO FRAME ATUAL
 
         n_frames = len(frame_evtac)
         if n_frames < self.window_size:
@@ -279,6 +294,8 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         seq_evtac: List[Any] = []
         seq_base: List[np.ndarray] = []
         seq_target: List[np.ndarray] = []
+        seq_user: List[str] = []  # <-- LISTA TEMPORÁRIA FINAL
+
         start_idx = self.window_size - 1
 
         for i in range(start_idx, n_frames):
@@ -287,16 +304,22 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             else:
                 seq_evtac.append(frame_evtac[i - start_idx : i + 1])
             seq_base.append(np.stack(frame_base[i - start_idx : i + 1], axis=0))
-            seq_target.append(frame_target_quat[i])
+            # seq_target.append(frame_target_quat[i])
+            seq_target.append(
+                frame_target_vec[i]
+            )  # <-- ADICIONANDO O VETOR COMO TARGET TAMBÉM
+            seq_user.append(frame_user[i])  # <-- ALOCANDO O USER AO TARGET
 
         if self.materialize_dense_evtac:
             evetac_out = np.stack(seq_evtac, axis=0).astype(np.float32)
         else:
             evetac_out = np.asarray(seq_evtac, dtype=object)
+
         return (
             evetac_out,
             np.stack(seq_base, axis=0).astype(np.float32),
             np.stack(seq_target, axis=0).astype(np.float32),
+            np.array(seq_user, dtype=object),  # <-- ENVIANDO O ARRAY
         )
 
     def _extract_sparse_evtac_frame(self, row: pd.Series) -> Dict[str, Any]:
@@ -308,11 +331,6 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         }
 
     def _sparse_evtac_to_downsampled_image(self, row: pd.Series) -> np.ndarray:
-        """
-        Converts sparse events into a 2-channel downsampled image:
-          channel 0 (signal): mean signed event in each cell, in [-1, 1]
-          channel 1 (density): normalized event density in [0, 1]
-        """
         h = int(row["height"])
         w = int(row["width"])
         ds = self.downsample_factor
@@ -344,17 +362,19 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
         nonzero = counts > 0
         signal[nonzero] = signed_sum[nonzero] / counts[nonzero]
 
-        # Fixed normalization by maximum number of pixels per ds cell.
         max_cell_events = float(ds * ds)
         density = np.clip(counts / max_cell_events, 0.0, 1.0)
 
         return np.stack([signal, density], axis=0)
 
-    def _empty_bag_arrays(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _empty_bag_arrays(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         return (
             self._empty_evtac_array(),
             np.empty((0, self.window_size, 7), dtype=np.float32),
             np.empty((0, 4), dtype=np.float32),
+            np.empty((0,), dtype=object),  # <-- ATUALIZADO PARA CONTER USER VAZIO
         )
 
     def _empty_evtac_array(self) -> np.ndarray:
@@ -370,11 +390,11 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
     def load_processed_data(
         self, base_path: str, target_cols: List[str]
     ) -> TactileData:
-        if target_cols and len(target_cols) != 4:
-            raise ValueError(
-                "Temporal quaternion strategy expects 4 target columns "
-                "(target_qx, target_qy, target_qz, target_qw)."
-            )
+        # if target_cols and len(target_cols) != 4:
+        #     raise ValueError(
+        #         "Temporal quaternion strategy expects 4 target columns "
+        #         "(target_qx, target_qy, target_qz, target_qw)."
+        #     )
 
         work_dir = Path(base_path) / self.get_dirname()
         data_path = work_dir / "data.npz"
@@ -382,7 +402,16 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             raise FileNotFoundError(f"Processed dataset not found: {data_path}")
 
         data = np.load(data_path, allow_pickle=True)
+
+        # Puxando o user bruto do arquivo npz e aplicando o encoder
+        raw_users = data["user"]
+        labelencoder = LabelEncoder()
+        users_encoded = labelencoder.fit_transform(raw_users)
+
         return TactileData(
+            user=np.array(
+                users_encoded
+            ),  # <-- DEVOLVENDO DO MESMO JEITO DA OUTRA ESTRATÉGIA
             evetac=data["evetac"],
             base=data["base"],
             target=data["target"],
