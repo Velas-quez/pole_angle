@@ -43,7 +43,7 @@
 \icmlauthor{Thiago Daquino Velasquez}{equal,tud,usp}
 \icmlauthor{Bárbara Fernandes Dias Bueno}{equal,tud,usp}
 \icmlauthor{Tim Schneider}{tud}
-\icmlauthor{Niklas Fund}{tud}
+\icmlauthor{Niklas Funk}{tud}
 \end{icmlauthorlist}
 
 \icmlaffiliation{tud}{Department of Electrical Engineering and Information Technology, TU Darmstadt, Darmstadt, Germany}
@@ -51,6 +51,7 @@
 
 \icmlcorrespondingauthor{Victor Pedreira Santos Pepe}{victor.pepe@stud.tu-darmstadt.de}
 \icmlcorrespondingauthor{Thiago Daquino Velasquez}{thiago.velasquez@stud.tu-darmstadt.de}
+\icmlcorrespondingauthor{Bárbara Fernandes Dias Bueno}{barbara.bueno@stud.tu-darmstadt.de}
 
 \icmlkeywords{Machine Learning, ICML, Tactile Sensing, Event-based Vision, Robotics, Deep Learning, Pole Balancing}
 
@@ -225,7 +226,7 @@ ensure that both predictions and targets lie on the unit sphere.
 
 \subsection{Arquitectures and Approaches}
 \subsubsection{Multi Layer Perception Network (MLP)}
-We employ a Multilayer Perceptron (MLP), \textit{TactileMLPVector}, as an initial baseline to map spatial tactile features directly to the pole's 3D orientation vector. This instantaneous mapping provides a rapid evaluation of the sensor's representational power prior to modeling complex temporal dynamics.
+We employ a Multilayer Perceptron (MLP) as an initial baseline to map spatial tactile features directly to the pole's 3D orientation vector. This instantaneous mapping provides a rapid evaluation of the sensor's representational power prior to modeling complex temporal dynamics.
 
 The architecture utilizes a progressive bottleneck with five hidden layers (128, 256, 128, 64, and 32 neurons). To ensure stable gradients and mitigate overfitting on sparse data, each linear transformation is followed by 1D Batch Normalization, ReLU activation, and a Dropout layer (rate of 0.1).
 
