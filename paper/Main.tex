@@ -94,7 +94,7 @@ Towards Blind Control with Event-Based Tactile Sensing}
 
     \subsection{Event-Based Optical Tactile Sensing}
     
-    Optical tactile sensors measure contact by observing the deformation of a compliant elastomer through an internal camera. In contrast to RGB-based designs, event-based optical tactile sensors use neuromorphic cameras that asynchronously report pixel-level intensity changes. The EvETac sensor replaces a standard frame-based camera with an event-based camera, enabling high temporal resolution while maintaining fine spatial detail. Marker tracking algorithms reconstruct elastomer deformation from sparse event streams at rates up to 1000 Hz.
+    Optical tactile sensors measure contact by observing the deformation of a compliant elastomer through an internal camera~\cite{Evetac}. In contrast to RGB-based designs, event-based optical tactile sensors use neuromorphic cameras that asynchronously report pixel-level intensity changes. The EvETac sensor replaces a standard frame-based camera with an event-based camera, enabling high temporal resolution while maintaining fine spatial detail. Marker tracking algorithms reconstruct elastomer deformation from sparse event streams at rates up to 1000 Hz.
     
     In this design, tactile measurements resemble images defined over the sensor surface. Each contact produces a spatial activation pattern corresponding to local pressure and shear forces. Consequently, a single tactile snapshot consists of hundreds of spatially distributed measurements, yielding high-dimensional signals. Over time, these spatial patterns evolve according to object motion and contact dynamics, forming structured tactile time-series data.
     
@@ -121,13 +121,13 @@ Towards Blind Control with Event-Based Tactile Sensing}
 
     \subsection{Event-Based Tactile Sensing}
     
-    Recent work introduced event-based optical tactile sensors to overcome the temporal limitations of frame-based designs. The EvETac sensor demonstrated high-frequency deformation tracking and efficient slip detection using sparse asynchronous event streams. While these works establish the hardware capabilities of event-driven tactile sensing, they primarily focus on contact classification and force reconstruction rather than continuous geometric state regression.
+    Recent work introduced event-based optical tactile sensors to overcome the temporal limitations of frame-based designs~\cite{TacEx}. The EvETac sensor demonstrated high-frequency deformation tracking and efficient slip detection using sparse asynchronous event streams. While these works establish the hardware capabilities of event-driven tactile sensing, they primarily focus on contact classification and force reconstruction rather than continuous geometric state regression.
     
     \subsection{Tactile Pose Estimation}
     
-    Tactile pose estimation has been studied in both object-specific and category-level settings. Tac2Pose proposes an object-specific framework that estimates object pose from the first tactile contact by matching observed contact shapes against simulated ones. This approach relies on known object geometry and large-scale simulation to learn pose-conditioned embeddings.
+    Tactile pose estimation has been studied in both object-specific and category-level settings. Tac2Pose proposes an object-specific framework that estimates object pose from the first tactile contact by matching observed contact shapes against simulated ones~\cite{DBLP:journals/ijrr/BauzaBR23}. This approach relies on known object geometry and large-scale simulation to learn pose-conditioned embeddings.
     
-    Kelestemur et al.\ investigate category-level tactile pose estimation using a Bayesian filtering framework with a learned tactile observation model. Their method integrates simulation-based training and reinforcement learning for downstream manipulation tasks.
+    Kelestemur et al.\~\cite{Kelestemur} investigate category-level tactile pose estimation using a Bayesian filtering framework with a learned tactile observation model. Their method integrates simulation-based training and reinforcement learning for downstream manipulation tasks.
     
     In contrast to these approaches, our work does not assume access to object meshes, precomputed contact simulations, or filtering frameworks. Instead, we focus on direct regression of 3D orientation from sparse event-based tactile signals collected exclusively in the real world.
     
