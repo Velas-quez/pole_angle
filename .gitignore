@@ -19,3 +19,6 @@ uv.lock
 *.db
 src/mlruns/
 src/outputs/
+/paper/Main.aux
+/paper/Main.log
+/paper/Main.out
