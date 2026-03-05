@@ -1,4 +1,4 @@
-\begin{thebibliography}{3}
+\begin{thebibliography}{10}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -11,11 +11,49 @@ Bai, S., Kolter, J.~Z., and Koltun, V.
   networks for sequence modeling.
 \newblock \emph{arXiv preprint}, arXiv:1803.01271, 2018.
 
+\bibitem[Bauz{\'{a}} et~al.(2023)Bauz{\'{a}}, Bronars, and
+  Rodriguez]{DBLP:journals/ijrr/BauzaBR23}
+Bauz{\'{a}}, M., Bronars, A., and Rodriguez, A.
+\newblock Tac2pose: Tactile object pose estimation from the first touch.
+\newblock \emph{Int. J. Robotics Res.}, 42\penalty0 (13):\penalty0 1185--1209,
+  2023.
+\newblock \doi{10.1177/02783649231196925}.
+\newblock URL \url{https://doi.org/10.1177/02783649231196925}.
+
+\bibitem[Funk et~al.(2024)Funk, Helmut, Chalvatzaki, Calandra, and
+  Peters]{Evetac}
+Funk, N., Helmut, E., Chalvatzaki, G., Calandra, R., and Peters, J.
+\newblock Evetac: An event-based optical tactile sensor for robotic
+  manipulation.
+\newblock \emph{{IEEE} Trans. Robotics}, 40:\penalty0 3812--3832, 2024.
+\newblock \doi{10.1109/TRO.2024.3428430}.
+\newblock URL \url{https://doi.org/10.1109/TRO.2024.3428430}.
+
+\bibitem[Gattung(2025)]{gattung2025tactile}
+Gattung, R.
+\newblock Learning pole balancing from high-frequency tactile feedback.
+\newblock Master's thesis, Technische Universität Darmstadt, Darmstadt,
+  Germany, May 2025.
+\newblock Reviewed by Jan Peters, Niklas Funk, Tim Schneider, and Kai Ploeger.
+
 \bibitem[Ho \& Ermon(2016)Ho and Ermon]{ho2016generative}
 Ho, J. and Ermon, S.
 \newblock Generative adversarial imitation learning.
 \newblock \emph{Advances in Neural Information Processing Systems}, 29, 2016.
 \newblock URL \url{https://arxiv.org/abs/1606.03476}.
+
+\bibitem[Kelestemur et~al.(2022)Kelestemur, Platt, and Padir]{Kelestemur}
+Kelestemur, T., Platt, R., and Padir, T.
+\newblock Tactile pose estimation and policy learning for unknown object
+  manipulation.
+\newblock In Faliszewski, P., Mascardi, V., Pelachaud, C., and Taylor, M.~E.
+  (eds.), \emph{21st International Conference on Autonomous Agents and
+  Multiagent Systems, {AAMAS} 2022, Auckland, New Zealand, May 9-13, 2022},
+  pp.\  742--750. International Foundation for Autonomous Agents and Multiagent
+  Systems {(IFAAMAS)}, 2022.
+\newblock \doi{10.5555/3535850.3535934}.
+\newblock URL
+  \url{https://www.ifaamas.org/Proceedings/aamas2022/pdfs/p742.pdf}.
 
 \bibitem[Koolani et~al.(2026)Koolani, Bamford, Trunin, M"{u}ller-Cleve, Preti,
   Mastrogiovanni, Beccai, and Bartolozzi]{koolani2026event}
@@ -23,5 +61,30 @@ Koolani, M., Bamford, S., Trunin, P., M"{u}ller-Cleve, S.~F., Preti, M.~L.,
   Mastrogiovanni, F., Beccai, L., and Bartolozzi, C.
 \newblock An event-based opto-tactile skin.
 \newblock \emph{arXiv preprint}, arXiv:2601.03907, 2026.
+
+\bibitem[Liu et~al.(2026)Liu, Li, and Zhang]{humom}
+Liu, G., Li, Z., and Zhang, D.
+\newblock Exploiting hu invariant moments and deep features for image
+  retrieval.
+\newblock \emph{Pattern Recognit.}, 173:\penalty0 112801, 2026.
+\newblock \doi{10.1016/J.PATCOG.2025.112801}.
+\newblock URL \url{https://doi.org/10.1016/j.patcog.2025.112801}.
+
+\bibitem[Nguyen et~al.(2024)Nguyen, Schneider, Duret, Kshirsagar, Belousov, and
+  Peters]{TacEx}
+Nguyen, D.~H., Schneider, T., Duret, G., Kshirsagar, A., Belousov, B., and
+  Peters, J.~R.
+\newblock Tacex: Gelsight tactile simulation in isaac sim - combining soft-body
+  and visuotactile simulators.
+\newblock \emph{CoRR}, abs/2411.04776, 2024.
+\newblock \doi{10.48550/ARXIV.2411.04776}.
+\newblock URL \url{https://doi.org/10.48550/arXiv.2411.04776}.
+
+\bibitem[Schmidhuber(2015)]{cnn}
+Schmidhuber, J.
+\newblock Deep learning in neural networks: An overview.
+\newblock \emph{Neural Networks}, 61:\penalty0 85--117, 2015.
+\newblock \doi{10.1016/J.NEUNET.2014.09.003}.
+\newblock URL \url{https://doi.org/10.1016/j.neunet.2014.09.003}.
 
 \end{thebibliography}
