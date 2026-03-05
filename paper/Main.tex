@@ -165,10 +165,10 @@ We opted to collect real human data to train the proposed model in order to capt
 sensor noise, and natural variability, that would not be able to be fully replicated in a simulated environment.
 The human data collection also proved to be better for capturing more extreme pole angles, differently from a robotic setup where the pole would likely fall after reaching such angles.
 
-For that pourpose, we designed a custom handle equipped with an \textit{Evtac} tactile sensor, and a set of \textit{OptiTrack} markers.
-This handle was used by human operators, to perform the balancing task, while the tactile and motion capture data were recorded simultaneously.
+For that pourpose, we designed a custom support equipped with an \textit{Evtac} tactile sensor, and a set of \textit{OptiTrack} markers.
+This support was used by human operators, to perform the balancing task, while the tactile and motion capture data were recorded simultaneously.
 
-Ground-truth measurements of the pole angle together with handle angle and position were obtained using an \textit{OptiTrack} motion capture system, which provides accurate 3D pose estimation.
+Ground-truth measurements of the pole angle together with support angle and position were obtained using an \textit{OptiTrack} motion capture system, which provides accurate 3D pose estimation.
 The motion capture data was temporally synchronized with the tactile sensor readings to ensure alignment between input signals and target labels.
 
 Aiming to obtain a more varied dataset, we recorded multiple sessions with two different team members.
@@ -189,7 +189,7 @@ All evaluated models were trained and validated using exactly the same data to g
     \begin{subfigure}{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{images/holder.jpeg}
-        \caption{Personalized handle equipped with an \textit{Evtac} tactile sensor and \textit{OptiTrack} markers.}
+        \caption{Personalized support equipped with an \textit{Evtac} tactile sensor and \textit{OptiTrack} markers.}
         \label{fig:img2}
     \end{subfigure}
     
@@ -258,7 +258,57 @@ The implemented TCN architecture was based on the design proposed by Bai et al. 
 - explicar o frameork que criamos, e a importãncia dele
 - The models were trained using the AdamW optimizer with a Reduce-LROnPlateau scheduler. Hyperparameter tuning and model tracking were managed via Hydra and MLflow, ensuring strict decoupling between the model definition and the training loop. 
 \section{Experiments}
-- explicar as combinações feitas dos modelos, valores utilizados e porque.
+
+This section evaluates how different tactile representations and temporal modeling strategies affect pole orientation estimation from event-based tactile data. We first establish simple reference baselines that quantify how well the task can be solved without tactile sensing or with trivial predictions. These experiments motivate the need for tactile-based learning models. We then perform a systematic comparison of representation and temporal modeling approaches.
+
+\subsection{Task Simplification Experiments}
+
+Before evaluating learning architectures, we conducted two controlled experiments designed to establish lower-bound baselines for the task. These experiments test whether pole orientation can be estimated from support motion alone and whether a constant upright prediction already achieves low error due to the pole being frequently near vertical.
+
+\paragraph{Support-Only Baseline.}
+In the first experiment, we evaluate whether the orientation of the support alone is sufficient to predict the pole orientation. The tactile input is removed, and a simple multilayer perceptron (MLP) is trained using only the orientation of the support that the human operator holds during the balancing task.
+
+This experiment serves as a baseline to quantify how much information about the pole state can be inferred from the support motion alone. Because the pole can move relative to the support during balancing, the support orientation provides only indirect information about the pole orientation. The results therefore establish that relying solely on this signal leads to significantly larger prediction errors, motivating the use of tactile sensing to capture the contact dynamics between the pole and the sensor.
+
+\paragraph{Vertical-Pole Baseline.}
+In the second experiment, we evaluate a trivial baseline that always predicts the pole to be perfectly vertical. Since the goal of the task is to keep the pole balanced upright, the pole remains close to the vertical direction for much of the dataset. This raises the question of whether a constant prediction might already achieve low error.
+
+To assess this, we compute the orientation error obtained when the predicted pole angles are fixed at $0^\circ$ for all samples. This baseline measures the error incurred by ignoring the dynamics of the pole entirely and assuming it remains perfectly upright. Comparing our learned models to this baseline allows us to verify that the proposed approach captures meaningful variations in pole orientation and achieves substantially lower error than this trivial assumption.
+
+Together, these experiments establish reference baselines for the task and demonstrate that neither support motion nor a constant upright assumption is sufficient to accurately estimate the pole orientation. This motivates the use of tactile sensing together with learned representations for reliable pole state estimation.
+
+\subsection{Statistical Representation of Event-Based Tactile Data}
+
+The raw tactile input consists of event streams where each event has a polarity of $-1$, $0$, or $1$, with the majority of pixels being inactive ($0$). To reduce redundancy and exploit the sparse nature of the signal, we convert the event map into a structured statistical representation.
+
+The tactile surface is partitioned into a grid of spatial quadrants, and statistics are computed for positive and negative events within each region. These statistics include the centroid, standard deviation, and event count. Some features combine both polarities, while others are computed separately for positive and negative events. This representation summarizes the spatial distribution of tactile activity while preserving polarity information.
+
+To determine the appropriate spatial resolution, we evaluate multiple quadrant sizes: $1$, $0.5$, $0.25$, and $0.125$ of the sensor area. This experiment analyzes how feature granularity affects prediction accuracy and computational complexity. Based on these results, a quadrant size of $0.25$ is selected for subsequent experiments as a balance between spatial detail and robustness.
+
+\subsection{Temporal Modeling}
+
+To understand the role of temporal information in tactile state estimation, we evaluate models with different levels of temporal context.
+
+\paragraph{Memoryless Models.}
+Memoryless models operate on individual tactile frames without explicitly modeling temporal dependencies. These models evaluate whether instantaneous tactile geometry is sufficient for predicting pole orientation.
+
+\paragraph{Short-Context Models.}
+Short-context models incorporate limited temporal information through sliding window representations. We evaluate windows of size $3$ and $5$, allowing the model to observe recent tactile activity while maintaining low latency.
+
+\paragraph{Long-Context Models.}
+Long-context temporal models based on Temporal Convolutional Networks (TCNs) are used to capture extended temporal dependencies in the tactile event stream. Dilated convolutions allow the receptive field to grow exponentially, enabling the model to integrate information over longer time horizons.
+
+\subsection{Model Architectures}
+
+We evaluate several combinations of tactile representations and neural architectures:
+
+\begin{itemize}
+    \item \textbf{TCN + CNN:} A temporal convolutional network applied to convolutional features extracted from the tactile event map.
+    \item \textbf{TCN + Statistical Representation:} A temporal convolutional network operating on the structured statistical features derived from the sparse event representation.
+    \item \textbf{Sliding Window + Statistical Representation:} Short-context models using statistical features aggregated over temporal windows of size $3$ and $5$.
+\end{itemize}
+
+This comparison allows us to analyze how spatial representation and temporal modeling interact when predicting pole orientation from event-based tactile signals.
 \section{Results}
 - resultados de cada experimento
 - discussão em cima disso
