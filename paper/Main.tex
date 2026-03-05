@@ -8,6 +8,7 @@
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{subcaption}
+\usepackage{float}
 \usepackage{booktabs} % for professional tables
 \usepackage{hyperref}
 \usepackage{booktabs}
@@ -177,7 +178,7 @@ Also, to ensure a fair and unbiased evaluation, one complete recording from each
 This recordings were not used during training or validation. The remaining data was split into training and validation sets.
 All evaluated models were trained and validated using exactly the same data to guarantee a consistent comparison.
 
-\begin{figure}[htbp]
+\begin{figure}[H]
     \centering
     
     \begin{subfigure}{0.48\linewidth}
@@ -348,9 +349,11 @@ We evaluate several combinations of tactile representations and neural architect
     \item \textbf{Sliding Window + Statistical Representation:} Short-context models using statistical features aggregated over temporal windows of size $3$ and $5$.
 \end{itemize}
 
-
 This comparison allows us to analyze how spatial representation and temporal modeling interact when predicting pole orientation from event-based tactile signals.
 \section{Results}
+
+After running the previously specified experiments, the following results were obtained:
+
 \begin{table}[H]
 \centering
 \resizebox{\columnwidth}{!}{%
@@ -367,11 +370,6 @@ This comparison allows us to analyze how spatial representation and temporal mod
 \label{tab:mlp_grids}
 \end{table}
 
-
-% Please add the following required packages to your document preamble:
-% \usepackage{booktabs}
-% Please add the following required packages to your document preamble:
-% \usepackage{booktabs}
 \begin{table}[H]
 \centering
 \setlength{\tabcolsep}{4pt}
@@ -394,20 +392,50 @@ CNN+TCN                          & 3.613 $\pm$ 3.464  & 0.350
 \end{table}
 \setlength{\tabcolsep}{6pt}
 \renewcommand{\arraystretch}{1}
-% \begin{table}[H]
-% \begin{tabular}{@{}cccc@{}}
-% \toprule
-% \textbf{Model}                   & \textbf{Val Error (°)} & \textbf{Val Error Std. (°)} & \textbf{Val Loss (10\textasciicircum{}-3)} \\ \midrule
-% MLP SW + Stats (2x2) & 3.126                  & 3.0458                      & 0.553                                      \\
-% MLP Stats (2x2)                  & 3.441                  & 3.117                       & 0.951                                      \\
-% TCS+Stats (2x2)                  & 2.229                  & 2.921                       & 0.016                                      \\
-% CNN+TCN                          & 3.613                  & 3.464                       & 0.350                                      \\
-% Z Axis                           & 9.844                  & 4.277                       & 10.645                                     \\
-% MLP Handle                  & 5.232                  & 3.297                       & 3.953                                     
-% \end{tabular}
-% \caption{Comparison between all models}
-% \label{tab:best_models}
-% \end{table}
+
+% The results presented in the tables indicate that all learned models substantially outperform the vertical-pole baseline, showing that the pole orientation cannot be accurately estimated from a naive static assumption alone. In addition, the comparison across architectures shows a clear benefit of incorporating tactile sensing into the input representation, as models using tactile features consistently achieve lower validation errors than approaches based only on the support state. Among all evaluated methods, the TCN+Stats (2x2) model achieved the best overall performance, suggesting that the combination of structured tactile feature extraction and temporal modeling is the most effective strategy for this estimation task.
+
+To further assess the generalization capability of the best-performing model, an additional round of testing was conducted using two completely new and isolated datasets, one collected by each team member. These datasets were kept separate from the data used during training and validation, providing a more realistic measure of how well the model transfers to unseen trials recorded under slightly different conditions. This extra evaluation helps reduce the risk of overestimating performance due to dataset-specific patterns and offers a more generalized assessment of the proposed approach.
+
+\begin{figure}[H]
+    \centering
+    
+    \begin{subfigure}{1\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/test_run_velas.jpeg}
+        \caption{Model isolated test on team member 1 dataset.}
+        \label{fig:test_run_velas}
+    \end{subfigure}
+    
+    \vspace{0.8em}
+    
+    \begin{subfigure}{1\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/test_run_babs.jpeg}
+        \caption{Model isolated test on team member 2 dataset.}
+        \label{fig:test_run_babs}
+    \end{subfigure}
+    
+    \caption{Results of the two new isolated test datasets used to further evaluate the best-performing model.}
+    \label{fig:new_test_datasets}
+\end{figure}
+
+It is important to note that the training dataset was composed
+predominantly of runs collected by the first team member,
+which may have biased the model toward patterns that were more
+representative of that specific data collection procedure and
+therefore contributed to the weaker performance on the new
+isolated tests. The validation error obtained during training
+remained below the error observed in these additional test
+runs, which is expected since they correspond to distinct runs
+acquired under different conditions. Another relevant aspect
+is that the error presents abrupt variations over time,
+indicating that the model performance is not uniform throughout
+the trajectory and may degrade sharply in specific segments.
+Taken together, these observations raise an important
+question about the actual generalization capacity of the
+learned models beyond the data distribution that was most
+strongly represented during training.
 
 \section{Conclusion and Future Work}
 
