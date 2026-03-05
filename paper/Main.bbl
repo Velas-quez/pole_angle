@@ -1,0 +1,21 @@
+\begin{thebibliography}{2}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Bai et~al.(2018)Bai, Kolter, and Koltun]{bai2018empirical}
+Bai, S., Kolter, J.~Z., and Koltun, V.
+\newblock An empirical evaluation of generic convolutional and recurrent
+  networks for sequence modeling.
+\newblock \emph{arXiv preprint}, arXiv:1803.01271, 2018.
+
+\bibitem[Koolani et~al.(2026)Koolani, Bamford, Trunin, M"{u}ller-Cleve, Preti,
+  Mastrogiovanni, Beccai, and Bartolozzi]{koolani2026event}
+Koolani, M., Bamford, S., Trunin, P., M"{u}ller-Cleve, S.~F., Preti, M.~L.,
+  Mastrogiovanni, F., Beccai, L., and Bartolozzi, C.
+\newblock An event-based opto-tactile skin.
+\newblock \emph{arXiv preprint}, arXiv:2601.03907, 2026.
+
+\end{thebibliography}
