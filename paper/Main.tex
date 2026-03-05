@@ -39,7 +39,7 @@
 \icmlsetsymbol{equal}{*}
 
 \begin{icmlauthorlist}
-\icmlauthor{Victor P. S. Pepe}{equal,tud,usp}
+\icmlauthor{Victor Pedreira Santos Pepe}{equal,tud,usp}
 \icmlauthor{Thiago Daquino Velasquez}{equal,tud,usp}
 \icmlauthor{Bárbara Fernandes Dias Bueno}{equal,tud,usp}
 \icmlauthor{Tim Schneider}{tud}
@@ -49,7 +49,7 @@
 \icmlaffiliation{tud}{Department of Electrical Engineering and Information Technology, TU Darmstadt, Darmstadt, Germany}
 \icmlaffiliation{usp}{Polytechnic School, University of São Paulo (Poli-USP), São Paulo, Brazil}
 
-\icmlcorrespondingauthor{Victor P. S. Pepe}{victor.pepe@stud.tu-darmstadt.de}
+\icmlcorrespondingauthor{Victor Pedreira Santos Pepe}{victor.pepe@stud.tu-darmstadt.de}
 \icmlcorrespondingauthor{Thiago Daquino Velasquez}{thiago.velasquez@stud.tu-darmstadt.de}
 
 \icmlkeywords{Machine Learning, ICML, Tactile Sensing, Event-based Vision, Robotics, Deep Learning, Pole Balancing}
@@ -219,10 +219,20 @@ We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
     \item \textbf{Angular Head:} Predicts Euler angles $(\hat{\phi}, \hat{\theta})$, representing azimuth and elevation.
 \end{enumerate}
 
-\subsection{Arquitectures}
+\subsection{Arquitectures and Approaches}
 \subsubsection{Multi Layer Perception Network (MLP)}
+We employ a Multilayer Perceptron (MLP), \textit{TactileMLPVector}, as an initial baseline to map spatial tactile features directly to the pole's 3D orientation vector. This instantaneous mapping provides a rapid evaluation of the sensor's representational power prior to modeling complex temporal dynamics.
+
+The architecture utilizes a progressive bottleneck with five hidden layers (128, 256, 128, 64, and 32 neurons). To ensure stable gradients and mitigate overfitting on sparse data, each linear transformation is followed by 1D Batch Normalization, ReLU activation, and a Dropout layer (rate of 0.1).
+
+% Multilayer Perceptrons  are foundational feedforward neural networks consisting of fully connected layers, effective at approximating complex, non-linear mappings. In this study, an MLP was employed as an initial baseline model due to its architectural simplicity and exceptionally fast training and inference speeds. By treating the pole balancing task initially as an instantaneous mapping---from spatial tactile features directly to the pole's orientation vector---the MLP provided a rapid evaluation of the sensor's base representational power before introducing more complex temporal dynamics.
+%
+% The implemented architecture, \textit{TactileMLPVector}, utilizes a progressive bottleneck structure to compress the input features into a 3D directional vector. The network consists of five hidden layers with 128, 256, 128, 64, and 32 neurons, respectively. To ensure stable gradient propagation and mitigate overfitting on the sparse tactile data, each linear transformation is followed by 1D Batch Normalization, a Rectified Linear Unit (ReLU) activation function, and a Dropout layer with a rate of 0.1.
+% Multilayer Perceptrons (MLPs) are foundational feedforward artificial neural networks widely used for structured data processing and regression tasks. Unlike specialized architectures such as convolutional or recurrent networks, MLPs consist entirely of fully connected layers, where each neuron in a given layer connects to all neurons in the subsequent layer. Through the use of non-linear activation functions, MLPs are capable of approximating complex, high-dimensional mappings. Due to their architectural simplicity, deterministic execution, and highly optimized matrix multiplication operations, MLPs provide exceptionally fast training and inference times, making them an ideal choice for rapid prototyping and establishing strong empirical baselines.
 \subsubsection{Convolutional Neural Network (CNN)}
-\subsubsection{Statistical Approach HU moments sla o q}
+Convolutional Neural Networks (CNNs) are specialized deep learning architectures designed to process grid-like data using localized filters. For tactile-based pole balancing, CNNs offer an intuitive approach by directly operating on the accumulated 2D pixel matrix of the EveTac sensor. By applying sliding learnable kernels across multiple channels, the network can extract a rich hierarchy of spatial features—ranging from basic edges to complex contact geometries. This enables the model to natively learn the spatial morphology and intensity distributions of the pole's footprint, bypassing the need for hand-crafted statistical feature extraction.
+
+However, this direct processing of dense spatial matrices introduces significant trade-offs. The architectural complexity and the high volume of floating-point operations drastically elevate both training and inference times compared to lightweight MLP baselines. While CNNs can capture fine spatial nuances, their heavy computational burden presents practical challenges for high-frequency, real-time control applications.
 \subsubsection{Temporal Convolutional Network (TCN)}
 Temporal Convolutional Networks (TCNs) are convolutional architectures
 designed for sequence modeling tasks. Unlike recurrent neural networks, TCNs rely
@@ -253,6 +263,34 @@ tactile sequences.
 
 The implemented TCN architecture was based on the design proposed by Bai et al. (2018) \cite{bai2018empirical},
 
+\subsubsection{Statistical Feature Extraction Approach}
+
+Processing raw, high-resolution tactile event streams directly imposes significant computational overhead. However, recent research on event-based tactile skins demonstrates that such data is highly compressible \cite{koolani2026event}. For instance, using stochastic down-sampling, an event stream could be reduced to $1/1024$ of its original size while maintaining valid press localizations for 85\% of the trials. Motivated by this inherent sparsity, we developed a spatial statistical feature extraction strategy to provide a fixed-size, lower-dimensional input representation for our models without losing essential mechanical information.
+
+\par Rather than processing the full asynchronous event stream, our approach aggregates tactile data over discretized spatial regions to capture the macroscopic dynamics of the pole's contact footprint. The sensor's spatial domain is subdivided into a grid of independent, uniformly sized quadrants. The dimensions of these quadrants act as a crucial hyperparameter that balances spatial granularity against computational performance. Smaller quadrants provide high-resolution localization of tactile stimuli but exponentially increase the dimensionality of the feature vector, while larger quadrants yield a more compact representation at the cost of fine-grained spatial details.
+
+\par Within each quadrant, the accumulated event stream is strictly segregated by polarity into positive events (typically indicating an increase in pressure) and negative events (indicating a decrease or release). For each processed frame, the algorithm extracts a set of foundational spatial statistics per quadrant: the mean spatial coordinates $(x, y)$, the spatial variance of the active pixels, and the absolute count of positive and negative events.
+
+\par To further encode the geometric structure and distribution of the contact patches, the algorithm computes the seven Hu moments for the events within each quadrant. Hu moments are a well-established set of statistical descriptors invariant to image translation, scale, and rotation. They are calculated independently for both the positive and negative event masks to distinctly capture the dynamics of contact onset and release. To ensure numerical stability, a logarithmic transformation is applied to the raw moments via $-\text{sign}(h) \cdot \log_{10}(|h| + 10^{-7})$. This combination of basic spatial statistics and invariant shape descriptors provides a dense, information-rich vector that efficiently summarizes the tactile state at any given instantaneous timestep.
+
+\subsubsection{Temporal Sliding Window Formulation}
+
+While instantaneous spatial features are sufficient for memoryless baselines, pole balancing is inherently a dynamic system where the current orientation heavily relies on past trajectories. To explicitly capture this temporal evolution without altering the underlying spatial encoding, we extend the instantaneous tactile representations into the temporal domain using a sliding window formulation.
+
+\par Let $X_t$ represent the extracted tactile features (e.g., the statistical vector) and base kinematic inputs at a discrete timestep $t$. A sliding window of size $T$ aggregates these past and current observations into a continuous sequence $S_t = \{X_{t-T+1}, \dots, X_{t-1}, X_t\}$. The sequential models are then trained to map this input history $S_t$ to the target pole orientation at the final timestep $t$. 
+
+\par A stride parameter controls the step size of the sliding window across the dataset, determining the overlap between consecutive sequences. This formulation ensures that temporal architectures, such as the TCN, receive a consistent historical context. By framing the input this way, the models are forced to implicitly learn the velocity and acceleration trends of the pole's contact footprint across the sensor surface over time.
+
+
+% \subsubsection{Statistical Feature Extraction Approach}
+%
+% Processing raw, high-resolution tactile event streams directly imposes significant computational overhead. However, recent research on event-based tactile skins demonstrates that such data is highly compressible \cite{koolani2026event}. For instance, using stochastic down-sampling, an event stream could be reduced to $1/1024$ of its original size while maintaining valid press localizations for 85\% of the trials . These results show that the sensing approach remains functional even with very sparse event data, which is promising for reducing computational load. Motivated by this inherent sparsity, we developed a spatial statistical feature extraction strategy to provide a fixed-size, lower-dimensional input representation for our models without losing essential mechanical information.
+%
+% \par Rather than processing the full asynchronous event stream, our approach aggregates tactile data over discretized spatial regions to capture the macroscopic dynamics of the pole's contact footprint. The sensor's spatial domain is subdivided into a grid of independent, uniformly sized quadrants. The dimensions of these quadrants act as a crucial hyperparameter that balances spatial granularity against computational performance. Smaller quadrants provide high-resolution localization of tactile stimuli but exponentially increase the dimensionality of the feature vector, potentially leading to sparse or empty regions. Conversely, larger quadrants yield a more compact and computationally efficient representation, though at the cost of fine-grained spatial details.
+% \par Within each quadrant, the event stream is strictly segregated by polarity into positive events (typically indicating an increase in pressure or contact area) and negative events (indicating a decrease or release). For a given temporal window, the algorithm extracts a set of foundational spatial statistics per quadrant, including the mean spatial coordinates $(x, y)$, the spatial variance of the active pixels, and the absolute count of positive and negative events.
+%
+% \par To further encode the geometric structure and distribution of the contact patches, the algorithm computes the seven Hu moments for the events within each quadrant. Hu moments are a well-established set of statistical image descriptors that quantify the shape characteristics of a distribution. They are particularly valuable because they are invariant to image translation, scale, and rotation, allowing the model to recognize consistent contact patterns regardless of their precise location within the quadrant.The Hu moments are calculated independently for both the positive and negative event masks to distinctly capture the dynamics of contact onset and release. Because raw Hu moments can span several orders of magnitude, a logarithmic transformation is applied to the results $(-\text{sign}(h) \cdot \log_{10}(|h| + 10^{-7}))$ to ensure numerical stability and facilitate neural network training. This combination of basic spatial statistics and invariant shape descriptors provides a dense, information-rich vector that efficiently summarizes the tactile state at any given timestep.
+%
 
 \subsection{Framework}
 - explicar o frameork que criamos, e a importãncia dele
