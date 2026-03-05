@@ -1,4 +1,4 @@
-\begin{thebibliography}{2}
+\begin{thebibliography}{3}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -10,6 +10,12 @@ Bai, S., Kolter, J.~Z., and Koltun, V.
 \newblock An empirical evaluation of generic convolutional and recurrent
   networks for sequence modeling.
 \newblock \emph{arXiv preprint}, arXiv:1803.01271, 2018.
+
+\bibitem[Ho \& Ermon(2016)Ho and Ermon]{ho2016generative}
+Ho, J. and Ermon, S.
+\newblock Generative adversarial imitation learning.
+\newblock \emph{Advances in Neural Information Processing Systems}, 29, 2016.
+\newblock URL \url{https://arxiv.org/abs/1606.03476}.
 
 \bibitem[Koolani et~al.(2026)Koolani, Bamford, Trunin, M"{u}ller-Cleve, Preti,
   Mastrogiovanni, Beccai, and Bartolozzi]{koolani2026event}

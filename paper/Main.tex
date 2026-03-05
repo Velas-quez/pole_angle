@@ -10,7 +10,7 @@
 \usepackage{subcaption}
 \usepackage{booktabs} % for professional tables
 \usepackage{hyperref}
-
+\usepackage{booktabs}
 % Attempt to make hyperref and algorithmic work together better:
 \newcommand{\theHalgorithm}{\arabic{algorithm}}
 
@@ -348,8 +348,55 @@ We evaluate several combinations of tactile representations and neural architect
     \item \textbf{Sliding Window + Statistical Representation:} Short-context models using statistical features aggregated over temporal windows of size $3$ and $5$.
 \end{itemize}
 
+
 This comparison allows us to analyze how spatial representation and temporal modeling interact when predicting pole orientation from event-based tactile signals.
 \section{Results}
+\begin{table}[H]
+\begin{tabular}{ccccl}
+\hline
+\textbf{Grid Shape} & \textbf{Val Error (°)} & \textbf{Val Error Std (°)} & \textbf{Val Loss ($10^{-3}$)} &  \\ \hline
+8x8                 & 3.505                  & 3.587                       & 0.604                                          &  \\
+4x4                 & 3.462                  & 3.189                       & 0.811                                          &  \\
+2x2                 & 3.441                  & 3.117                       & 0.951                                          &  \\
+1x1                 & 3.924                  & 3.168                       & 1.4607                                          \\  
+\end{tabular}
+\caption{Comparison between MLP models with statistical features of different grid sizes (without sliding window)}
+\label{tab:mlp_grids}
+\end{table}
+
+
+% Please add the following required packages to your document preamble:
+% \usepackage{booktabs}
+% Please add the following required packages to your document preamble:
+% \usepackage{booktabs}
+\begin{table}[H]
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Model}                                                                & \textbf{Val Error (°)} & \textbf{\begin{tabular}[c]{@{}c@{}}Val Error \\ Std. (°)\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Val Loss ($10^{-3}$)\end{tabular}} \\ \midrule
+\begin{tabular}[c]{@{}c@{}}MLP Sliding\\  Window + Stats\\ (2x2)\end{tabular} & 3.126                  & 3.0458                                                                 & 0.553                                                                                \\
+\begin{tabular}[c]{@{}c@{}}MLP Stats\\ (2x2)\end{tabular}                     & 3.441                  & 3.117                                                                  & 0.951                                                                                \\
+\begin{tabular}[c]{@{}c@{}}TCS+Stats\\ (2x2)\end{tabular}                     & 2.229                  & 2.921                                                                  & 0.016                                                                                \\
+CNN+TCN                                                                       & 3.613                  & 3.464                                                                  & 0.350                                                                                \\
+Z Axis                                                                        & 9.844                  & 4.277                                                                  & 10.645                                                                               \\
+MLP Handle Only                                                               & 5.232                  & 3.297                                                                  & 3.953                                                                               
+\end{tabular}
+\caption{Comparison between all models}
+\label{tab:best_models}
+\end{table}
+% \begin{table}[H]
+% \begin{tabular}{@{}cccc@{}}
+% \toprule
+% \textbf{Model}                   & \textbf{Val Error (°)} & \textbf{Val Error Std. (°)} & \textbf{Val Loss (10\textasciicircum{}-3)} \\ \midrule
+% MLP SW + Stats (2x2) & 3.126                  & 3.0458                      & 0.553                                      \\
+% MLP Stats (2x2)                  & 3.441                  & 3.117                       & 0.951                                      \\
+% TCS+Stats (2x2)                  & 2.229                  & 2.921                       & 0.016                                      \\
+% CNN+TCN                          & 3.613                  & 3.464                       & 0.350                                      \\
+% Z Axis                           & 9.844                  & 4.277                       & 10.645                                     \\
+% MLP Handle                  & 5.232                  & 3.297                       & 3.953                                     
+% \end{tabular}
+% \caption{Comparison between all models}
+% \label{tab:best_models}
+% \end{table}
 - resultados de cada experimento
 - discussão em cima disso
 
