@@ -136,10 +136,30 @@
     
 \section{Methodology}
 \subsection{Problem Formulation}
-- o objetivo final é equilibrar o pole.
-- temos as informações de estado do robo, e os eventos do sensor tátil.
-- queremos prever a orientação do POLE.
-- com isso, podemos usar controladores clássicos para manter o equilíbrio.
+The ultimate objective of this work is to balance a pole using exclusively tactile sensing.
+More specifically, we aim to estimate the pole orientation relying only on the robot state
+information and the tactile sensor events, without using visual input during inference.
+
+At each time step, the system has access to: (i) the robot state variables
+(e.g., position and orientation of the sensor support),
+and (ii) the sparse event-based tactile measurements provided by the tactile sensor.
+Based on these inputs, the goal is to predict the 3D orientation of the pole.
+
+Formally, let $\mathbf{x}_t$ denote the robot state at time $t$,
+and let $\mathbf{s}_t$ represent the corresponding tactile sensor measurements.
+The task is to learn a function
+\[
+f_\theta : (\mathbf{x}_{t-k:t}, \mathbf{s}_{t-k:t}) \rightarrow \mathbf{y}_t,
+\]
+where $\mathbf{y}_t$ denotes the pole orientation at time $t$,
+$\theta$ represents the learnable model parameters,
+and $k$ defines the size of the temporal window used as input.
+
+To address this problem, we train and evaluate multiple deep learning models
+for pole orientation prediction. Their performance is systematically compared
+and optimized with the objective of achieving sufficient accuracy to support
+stable closed-loop control.
+
 \subsection{Data Collection}
 We opted to collect real human data to train the proposed model in order to capture realistic interaction dynamics,
 sensor noise, and natural variability, that would not be able to be fully replicated in a simulated environment.
@@ -200,7 +220,40 @@ We contrast two strategies for predicting the pole orientation $\mathbf{y}$:
 \end{enumerate}
 
 \subsection{Arquitectures}
-- explicar todas as arquiteturas e modelos usados.
+\subsubsection{Multi Layer Perception Network (MLP)}
+\subsubsection{Convolutional Neural Network (CNN)}
+\subsubsection{Statistical Approach HU moments sla o q}
+\subsubsection{Temporal Convolutional Network (TCN)}
+Temporal Convolutional Networks (TCNs) are convolutional architectures
+designed for sequence modeling tasks. Unlike recurrent neural networks, TCNs rely
+exclusively on one-dimensional causal convolutions applied along the temporal dimension,
+ensuring that predictions at time $t$ depend only on current and past inputs.
+To effectively capture long-range temporal dependencies, TCNs employ dilated convolutions,
+where the dilation factor increases exponentially with network depth, allowing the
+receptive field to grow without a proportional increase in parameters.
+Due to their parallelizable structure, stable gradients, and
+flexible receptive field control, TCNs have shown competitive or superior performance
+compared to recurrent models in various sequence modeling tasks \cite{bai2018empirical}.
+
+In the context of tactile-based pole angle estimation, the use of a TCN
+is well-motivated. Pole balancing is inherently
+a dynamic problem, in which the current orientation depends on the recent temporal
+evolution of contact patterns rather than on instantaneous measurements alone.
+Since the tactile sensor operates in an event-based manner,
+producing sparse and temporally structured signals,
+modeling short- and long-term temporal dependencies is essential.
+The causal structure of TCNs ensures that predictions rely only on past and
+present information, making them suitable for real-time control scenarios.
+Furthermore, dilated convolutions allow the network to aggregate information
+over multiple temporal scales, which is beneficial for capturing both fast
+transient contact events and slower motion trends of the pole.
+Compared to recurrent architectures, TCNs also offer more stable training
+and parallelizable computation, which is advantageous when training on long
+tactile sequences.
+
+The implemented TCN architecture was based on the design proposed by Bai et al. (2018) \cite{bai2018empirical},
+
+
 \subsection{Framework}
 - explicar o frameork que criamos, e a importãncia dele
 - The models were trained using the AdamW optimizer with a Reduce-LROnPlateau scheduler. Hyperparameter tuning and model tracking were managed via Hydra and MLflow, ensuring strict decoupling between the model definition and the training loop. 
