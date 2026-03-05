@@ -18,9 +18,9 @@ data:
     test:  "data/test/processed/"
   pre_processed:
     train:
-      evtac: "data/train/preprocessed_mix/evtac.parquet"
-      markers: "data/train/preprocessed_mix/markers.parquet"
-      opti: "data/train/preprocessed_mix/optitrack.parquet"
+      evtac: "data/train/preprocessed_mix_updated/evtac.parquet"
+      markers: "data/train/preprocessed_mix_updated/markers.parquet"
+      opti: "data/train/preprocessed_mix_updated/optitrack.parquet"
 
     test:
       evtac: "data/test/preprocessed/evtac.parquet"
@@ -30,9 +30,10 @@ data:
 
 training:
   batch_size: 128
-  epochs: 500
+  epochs: 150
   use_gpu: true # Replaces the 'cuda' if check in code
   scale_evtac: true
+  split_ratio: 0.8
   optimizer:
     _target_: torch.optim.AdamW # Optimizer: AdamW
     lr: 0.002                 # Learning rate

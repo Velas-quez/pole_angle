@@ -218,9 +218,14 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             [[d["x"], d["y"], d["z"], d["w"]] for d in df_opti["orientation"]],
             dtype=np.float64,
         )
+        # Base orientation in x, y, z, considering the quaterion to rotate the vector (0,0,1)
+        base_vec = R.from_quat(base_quat).apply(
+            np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        )
 
         pos_interp = interp1d(opti_ts, base_pos, axis=0, fill_value="extrapolate")
         quat_interp = interp1d(opti_ts, base_quat, axis=0, fill_value="extrapolate")
+        basevec_interp = interp1d(opti_ts, base_vec, axis=0, fill_value="extrapolate")
 
         frame_evtac: List[Any] = []
         frame_base: List[np.ndarray] = []
@@ -239,6 +244,7 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
             quat_t = _normalize_quaternion(
                 np.asarray(quat_interp(ts), dtype=np.float64)
             )
+            basevec_t = np.asarray(basevec_interp(ts), dtype=np.float64)
             rot_base = R.from_quat(quat_t)
 
             world_vec = np.asarray(marker_interp(ts), dtype=np.float64)
@@ -255,7 +261,14 @@ class TemporalEvtacPoseQuatStrategy(BaseStrategy):
 
             frame_evtac.append(evtac_entry)
             frame_base.append(
-                np.concatenate([pos_t, quat_t], axis=0).astype(np.float32)
+                np.concatenate(
+                    [
+                        # pos_t,
+                        quat_t,
+                        basevec_t,
+                    ],
+                    axis=0,
+                ).astype(np.float32)
             )
             frame_target_quat.append(target_quat)
 

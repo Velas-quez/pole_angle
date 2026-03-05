@@ -89,12 +89,29 @@ def create_loaders(
     Retorna Dataloader de treino, Dataloader de validação, scaler para EvETAC e scaler para Base.
     """
 
-    # 1. Split Sequencial
+    # 1. Split Sequencial e por user
     num_samples = len(data_dict["target"])
-    split_idx = int(num_samples * split_ratio)
+    print(f"Total samples: {num_samples}")
+    users = data_dict["user"]
+    print(users.shape)
+    idxs = np.arange(num_samples)
+    all_train_idxs, all_val_idxs = [], []
+    unique_users, counts = np.unique(users, return_counts=True)
+    for user, count in zip(unique_users, counts):
+        print(user, count)
+        mask = users == user
+        user_idxs = idxs[mask]
+        split_idx = int(count * split_ratio)
+        print(
+            f"User {user}: {count} samples, split at {split_idx} ({split_ratio * 100:.1f}%)"
+        )
+        all_train_idxs.append(user_idxs[:split_idx])
+        all_val_idxs.append(user_idxs[split_idx:])
 
-    train_data = {k: v[:split_idx] for k, v in data_dict.items()}
-    val_data = {k: v[split_idx:] for k, v in data_dict.items()}
+    train_idxs = np.concatenate(all_train_idxs).astype(int)
+    val_idxs = np.concatenate(all_val_idxs).astype(int)
+    train_data = {k: v[train_idxs] for k, v in data_dict.items()}
+    val_data = {k: v[val_idxs] for k, v in data_dict.items()}
 
     # 2. Scaling EvETAC
     if not scale_evtac:

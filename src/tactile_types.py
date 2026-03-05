@@ -9,6 +9,7 @@ class TactileInput(TypedDict):
 
 
 class TactileData(TypedDict):
+    user: np.ndarray
     evetac: np.ndarray  # Dados do EvETAC, pode ser (N, H, W) ou (N, Features)
     base: np.ndarray  # Dados da Base, geralmente (N, 2) para
     target: (

@@ -1,16 +1,16 @@
 from __future__ import annotations
-
+from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List
-
+from typing import Dict, List, Literal
+from sklearn.preprocessing import LabelEncoder
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 from torch.utils.data import Dataset
 
-from src.processing.strategies.base_strategy import BaseStrategy
 from src.models.datasets import TactileVectorDataset
+from src.processing.strategies.base_strategy import BaseStrategy
 from src.tactile_types import TactileData
 
 
@@ -128,17 +128,18 @@ def extract_and_prepare_parquet(
     quad_width: float,
     quad_height: float,
 ) -> pd.DataFrame:
+    print(evtac_path)
     df_evtac_full = pd.read_parquet(evtac_path)
     df_markers_full = pd.read_parquet(markers_path)
     df_opti_full = pd.read_parquet(opti_path)
-
+    print(df_evtac_full.columns)
     for df in [df_evtac_full, df_markers_full, df_opti_full]:
         df.rename(inplace=True, columns={"bagfile": "bag_name"})
 
     sensor_w = int(df_evtac_full.iloc[0]["width"])
     sensor_h = int(df_evtac_full.iloc[0]["height"])
-    qw = int(quad_width) if quad_width >= 1 else int(sensor_w * quad_width)
-    qh = int(quad_height) if quad_height >= 1 else int(sensor_h * quad_height)
+    qw = int(quad_width) if quad_width > 1 else int(sensor_w * quad_width)
+    qh = int(quad_height) if quad_height > 1 else int(sensor_h * quad_height)
 
     all_episodes_results = []
     bags = [b for b in df_evtac_full["bag_name"].unique() if pd.notna(b)]
@@ -147,6 +148,7 @@ def extract_and_prepare_parquet(
         df_evtac = df_evtac_full[df_evtac_full["bag_name"] == bag].copy()
         df_markers = df_markers_full[df_markers_full["bag_name"] == bag].copy()
         df_opti = df_opti_full[df_opti_full["bag_name"] == bag].copy()
+        print(df_evtac.columns)
 
         if df_opti.empty or df_evtac.empty:
             continue
@@ -178,12 +180,12 @@ def extract_and_prepare_parquet(
             mask_fn(df_markers),
             mask_fn(df_opti),
         )
-
+        df_evtac = df_evtac[df_evtac["nnz"] > 10]
         processed_evtac = [
-            process_single_evtac_row(row, qw, qh)
-            for _, row in df_evtac.iterrows()
-            if row["nnz"] > 10
+            process_single_evtac_row(row, qw, qh) for _, row in df_evtac.iterrows()
         ]
+        users = deepcopy(df_evtac["user"])
+        print("Users in bag:", users.unique())
         if not processed_evtac:
             continue
         evtac_feat_arr = np.array(processed_evtac)
@@ -207,7 +209,6 @@ def extract_and_prepare_parquet(
         interp_quats = f_quat(target_timestamps)
         interp_quats /= np.linalg.norm(interp_quats, axis=1, keepdims=True)
         sync_rots_base = R.from_quat(interp_quats)
-
         f_marker_v = interp1d(
             marker_vec_arr[:, 0],
             marker_vec_arr[:, 1:],
@@ -216,11 +217,12 @@ def extract_and_prepare_parquet(
         )
         sync_v_world = f_marker_v(target_timestamps)
 
-        final_vec_targets, base_eulers = [], []
+        final_vec_targets, base_eulers, base_vectors = [], [], []
         for i in range(len(target_timestamps)):
             v_local = sync_rots_base[i].inv().apply(sync_v_world[i])
             final_vec_targets.append(v_local / (np.linalg.norm(v_local) + 1e-7))
             base_eulers.append(sync_rots_base[i].as_euler("xyz", degrees=True))
+            base_vectors.append(sync_rots_base[i].apply(np.array([0, 0, 1])))
 
         # Geração de nomes com o prefixo evetac_
         n_qx, n_qy = sensor_w // qw, sensor_h // qh
@@ -242,7 +244,12 @@ def extract_and_prepare_parquet(
 
         df_bag = pd.DataFrame(evtac_feat_arr[:, 1:], columns=cols)
         df_bag["bag_name"] = bag
+        df_bag["user"] = users.values
+        print(
+            f"Processed bag: {bag}, samples: {len(df_bag)}, users: {df_bag['user'].unique()}"
+        )
         df_bag[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
+        df_bag[["base_vec_x", "base_vec_y", "base_vec_z"]] = np.array(base_vectors)
         df_bag[["target_x", "target_y", "target_z"]] = np.array(final_vec_targets)
         all_episodes_results.append(df_bag)
 
@@ -256,9 +263,19 @@ def extract_and_prepare_parquet(
 class StatisticalMultiQuadsStrategy(BaseStrategy):
     name: str = "statistical_multi_quads"
 
-    def __init__(self, quad_width: float = 0.25, quad_height: float = 0.25):
+    def __init__(
+        self,
+        quad_width: float = 0.25,
+        quad_height: float = 0.25,
+        base_format: Literal["euler", "vector"] = "vector",
+    ):
         self.quad_width = quad_width
         self.quad_height = quad_height
+        assert base_format in [
+            "euler",
+            "vector",
+        ], "base_format must be 'euler' or 'vector'"
+        self.base_format = base_format
 
     def get_dirname(self) -> str:
         return f"{self.name}_w{self.quad_width}_h{self.quad_height}"
@@ -283,13 +300,27 @@ class StatisticalMultiQuadsStrategy(BaseStrategy):
         # Seleção automática de colunas por prefixo
         evetac_cols = [c for c in df.columns if c.startswith("evetac_")]
         base_cols = [c for c in df.columns if c.startswith("base_")]
+        if self.base_format == "vector":
+            base_cols = [
+                c for c in base_cols if c not in ["base_roll", "base_pitch", "base_yaw"]
+            ]
+        else:
+            base_cols = [
+                c for c in base_cols if c in ["base_vec_x", "base_vec_y", "base_vec_z"]
+            ]
 
         # Filtro seletivo de targets (configuração do utilizador)
         missing = [c for c in target_cols if c not in df.columns]
         if missing:
             raise ValueError(f"As colunas target {missing} não existem no Parquet!")
-
+        print("load_processed_data")
+        print(df["user"].unique())
+        labelencoder = LabelEncoder()
+        users = labelencoder.fit_transform(df["user"])
+        print(labelencoder.classes_)
+        print(labelencoder.transform(labelencoder.classes_))
         return TactileData(
+            user=np.array(users),
             evetac=df[evetac_cols].values,
             base=df[base_cols].values,
             target=df[target_cols].values,

@@ -302,6 +302,6 @@ def preprocess_directory(raw_dir, output_dir, **kwargs) -> Dict[str, str]:
 
 if __name__ == "__main__":
     mode = "train"  # "train"/"test"
-    raw_dir = os.path.join("data", mode, "raw")
-    output_dir = os.path.join("data", mode, "preprocessed")
+    raw_dir = os.path.join("data", mode, "raw_babs_new")
+    output_dir = os.path.join("data", mode, "preprocessed_babs_new")
     preprocess_directory(raw_dir, output_dir)

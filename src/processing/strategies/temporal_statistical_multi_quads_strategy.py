@@ -98,7 +98,9 @@ class TemporalStatisticalMultiQuadsStrategy(BaseStrategy):
                 seq_target.append(target_arr[end_idx])
 
         if not seq_target:
-            evetac_out = np.empty((0, self.window_size, len(evetac_cols)), dtype=np.float32)
+            evetac_out = np.empty(
+                (0, self.window_size, len(evetac_cols)), dtype=np.float32
+            )
             base_out = np.empty((0, self.window_size, len(base_cols)), dtype=np.float32)
             target_out = np.empty((0, 3), dtype=np.float32)
         else:

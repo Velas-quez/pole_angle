@@ -9,5 +9,5 @@ normalization:
   _target_: torch.nn.BatchNorm1d # Example: torch.nn.BatchNorm1d, torch.nn.LayerNorm
   _partial_: true
 # num_layers: 4            # Number of layers
-neurons: [256, 128, 128, 64, 32] # List of neurons per layer, length matches num_layers
+neurons: [128, 256, 128, 64, 32] # List of neurons per layer, length matches num_layers
 

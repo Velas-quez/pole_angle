@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 from typing import MutableMapping
-
+import dagshub
 import hydra
 import joblib
 import mlflow
@@ -10,6 +10,7 @@ import mlflow.artifacts
 import torch
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
+from dotenv import load_dotenv
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
@@ -21,11 +22,14 @@ from src.tactile_types import (
 from src.utils.create_loaders import create_loaders
 from src.utils.trainer import run_training_loop
 
+load_dotenv()
+dagshub.init(os.getenv("DAGSHUB_REPO"), os.getenv("DAGSHUB_OWNER"), mlflow=True)
+
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def train(cfg: DictConfig):
     # 1. Setup MLflow
-    mlflow.set_tracking_uri(Path("mlruns").resolve().as_uri())
+    # mlflow.set_tracking_uri(Path("mlruns").resolve().as_uri())
     mlflow.set_experiment(cfg.experiment_name)
 
     device = torch.device(
@@ -73,7 +77,7 @@ def train(cfg: DictConfig):
     scaler_evetac = None
     scaler_base = None
     model = None
-
+    print("TRACKING URI ATUAL:", mlflow.get_tracking_uri())
     with mlflow.start_run(
         run_id=resume_id, run_name=f"{choices['strategies']}_{choices['models']}"
     ) as run:

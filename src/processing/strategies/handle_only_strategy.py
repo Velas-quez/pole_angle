@@ -115,15 +115,17 @@ class HandleOnlyStrategy(BaseStrategy):
             sync_v_world = f_marker_v(target_timestamps)
 
             # 4. Coordinate Transformation
-            final_vec_targets, base_eulers = [], []
+            final_vec_targets, base_eulers, base_vectors = [], [], []
             for i in range(len(target_timestamps)):
                 v_local = sync_rots_base[i].inv().apply(sync_v_world[i])
                 final_vec_targets.append(v_local / (np.linalg.norm(v_local) + 1e-7))
                 base_eulers.append(sync_rots_base[i].as_euler("xyz", degrees=True))
+                base_vectors.append(sync_rots_base[i].apply(np.array([0, 0, 1])))
 
             # Lightweight DataFrame
             df_bag = pd.DataFrame()
             df_bag[["base_roll", "base_pitch", "base_yaw"]] = np.array(base_eulers)
+            df_bag[["base_vec_x", "base_vec_y", "base_vec_z"]] = np.array(base_vectors)
             df_bag[["target_x", "target_y", "target_z"]] = np.array(final_vec_targets)
 
             all_episodes_results.append(df_bag)

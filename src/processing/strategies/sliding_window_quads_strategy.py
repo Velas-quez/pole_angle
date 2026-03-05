@@ -16,7 +16,7 @@ from .statistical_multi_quads_strategy import extract_and_prepare_parquet
 class SlidingWindowQuadsStrategy(BaseStrategy):
     """
     Temporal strategy that concatenates features from the current time (t)
-    and the two previous steps (t-1, t-2).
+    and the previous steps (t-1, t-2, ..., t-k).
     """
 
     name: str = "sliding_window_quads"

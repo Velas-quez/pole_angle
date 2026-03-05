@@ -21,3 +21,6 @@ src/mlruns/
 src/outputs/
 results/
 .env
+.env
+.dvc
+*.tar.gz

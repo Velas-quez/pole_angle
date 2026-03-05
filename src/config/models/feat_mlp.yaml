@@ -1,7 +1,0 @@
-# conf/models/feat_mlp.yaml
-
-name: "Tactile_MLP"
-name_id: "feat_mlp"  # MUST match models/feat_mlp.py
-layers: [128, 64, 32]
-dropout: 0.1
-activation: "relu"
