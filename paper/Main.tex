@@ -61,7 +61,7 @@
 \printAffiliationsAndNotice{\icmlEqualContribution} 
 
 \begin{abstract}
-    Precise estimation of object orientation from tactile feedback is critical for robotic manipulation, particularly in scenarios where visual sensing is unreliable or unavailable. We study 3D pole orientation estimation from high-resolution tactile time-series data, motivated by tactile-based pole balancing, and formulate the problem as regression on the unit sphere $S^2$. Direct learning from raw tactile pressure maps is challenged by high dimensionality and spatial redundancy, which we address through a Statistical Multi-Quad encoding that aggregates activations into structured spatial-statistical features at multiple resolutions. Ground-truth orientation vectors are computed from optical marker data via Singular Value Decomposition (SVD), and evaluation employs strict temporal splits across recording sessions to prevent interpolation-induced leakage. We compare memoryless, short-term temporal, and long-horizon sequence models under multiple target parameterizations. Our results show that \textbf{[BEST MODEL CONFIGURATION]} achieves the lowest mean angular error of \textbf{[X.X$^\circ$]} on temporally separated recording sessions, highlighting the importance of structured tactile representations combined with temporal modeling for accurate and stable orientation regression.
+    Precise estimation of object orientation from tactile feedback is critical for robotic manipulation, particularly in scenarios where visual sensing is unreliable or unavailable. We study 3D pole orientation estimation from high-resolution tactile time-series data, motivated by tactile-based pole balancing, and formulate the problem as regression on the unit sphere $S^2$. Direct learning from raw tactile pressure maps is challenged by high dimensionality and spatial redundancy, which we address through a Statistical Multi-Quad encoding that aggregates activations into structured spatial-statistical features at multiple resolutions. Ground-truth orientation vectors are computed from optical marker data via Singular Value Decomposition (SVD), and evaluation employs strict temporal splits across recording sessions to prevent interpolation-induced leakage. We compare memoryless, short-term temporal, and long-horizon sequence models under multiple target parameterizations. Our results show that the \textbf{statistical based TCN} model achieves the mean angular error of approximately \textbf{2.23°} on validation data, highlighting the importance of structured tactile representations combined with temporal modeling for accurate and stable orientation regression.
     \end{abstract}
 
     \section{Introduction}
@@ -405,7 +405,7 @@ MLP Handle Only                                                               & 
 In this work, we investigated the feasibility of estimating the
 orientation of a pole using only tactile sensing and robot state
 information. The best evaluated model was able to estimate the pole
-orientation with an average error of approximately $X$ degrees.
+orientation with an average error of approximately 2.23°.
 This performance significantly outperforms simple baseline
 strategies, such as assuming the pole remains vertical at all
 times or relying solely on the orientation of the sensor support
