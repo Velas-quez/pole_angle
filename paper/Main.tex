@@ -352,9 +352,67 @@ This comparison allows us to analyze how spatial representation and temporal mod
 \section{Results}
 - resultados de cada experimento
 - discussão em cima disso
-\section{Conclusion and feature work}
-Our findings suggest that vectorial representation is significantly more robust for high-frequency tactile feedback in pole balancing tasks. The event-based statistical pooling strategy successfully balances low latency with sufficient spatial acuity. Future work will explore the integration of Recurrent Neural Networks (RNNs) and Spiking Neural Networks (SNNs) to capture the temporal dynamics of the event stream natively.
 
+\section{Conclusion and Future Work}
+
+In this work, we investigated the feasibility of estimating the
+orientation of a pole using only tactile sensing and robot state
+information. The best evaluated model was able to estimate the pole
+orientation with an average error of approximately $X$ degrees.
+This performance significantly outperforms simple baseline
+strategies, such as assuming the pole remains vertical at all
+times or relying solely on the orientation of the sensor support
+as a proxy for the pole angle.
+
+Although the obtained results demonstrate that tactile-based
+estimation is feasible, it is still unclear whether the achieved
+prediction accuracy is sufficient for reliable closed-loop
+control. In the context of pole balancing, the effectiveness
+of the estimator depends not only on the average prediction
+error but also on the stability of the estimates and their
+suitability for control feedback. Moreover, practical deployment
+requires that the models meet real-time constraints, meaning
+that both the estimation accuracy and the inference latency
+must be compatible with the control loop requirements. Therefore,
+further evaluation is necessary to determine whether the
+proposed models can support stable pole balancing in a real
+robotic system.
+
+As future work, we plan to investigate the deployment of the
+trained models in real robotic experiments to assess their
+effectiveness in an actual pole-balancing task. We also intend
+to evaluate the inference time of the proposed models to
+determine whether they satisfy the timing constraints required
+for real-time control.
+
+Furthermore, we plan to explore several approaches to improve the robustness and accuracy of the predictions. These include:
+
+\begin{itemize}
+    \item Applying filtering techniques to the input and/or output signals in order to reduce noise and improve temporal consistency.
+    \item Incorporating physical constraints of the system into the modeling process to prevent unrealistic jumps or physically impossible pole motions in the predicted angles.
+    \item Performing data augmentation by mirroring and rotating the Evtac tactile sensor inputs, in order to increase the diversity of contact patterns observed during training and improve the robustness of the model.
+\end{itemize}
+
+Finally, we expect that by incorporating these improvements and
+iteratively evaluating the models on the real robotic platform,
+it will be possible to achieve a level of angle estimation
+accuracy that is sufficient for integration into the control
+loop. Through repeated cycles of testing, analysis, and
+refinement, the estimation models can be progressively adapted
+to the practical constraints and dynamics of the physical system.
+
+Alternatively, another promising direction to explore is the use
+of imitation learning \cite{ho2016generative}. In contrast to the current approach,
+where a model is trained to explicitly predict the pole
+orientation that is later used by a separate controller,
+imitation learning would directly learn a control policy from
+demonstrations. In this paradigm, the model would map tactile
+sensor observations and robot states directly to control actions
+by imitating an expert controller or human demonstrations.
+This approach could potentially bypass the need for an
+intermediate state estimation step and allow the system to
+learn control-relevant representations directly from tactile
+feedback.
 
 \bibliography{main}
 \bibliographystyle{icml2025}
