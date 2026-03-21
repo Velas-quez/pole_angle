@@ -117,9 +117,9 @@ Towards Blind Control with Event-Based Tactile Sensing}
     We represent pole orientation as a 3D unit vector $\mathbf{v} \in \mathbb{R}^3$ satisfying $\|\mathbf{v}\|_2 = 1$. The set of all such vectors defines the unit sphere $S^2$. Formulating orientation estimation as regression on $S^2$ ensures a continuous and non-redundant representation, avoiding discontinuities inherent in Euler angles.
     
     Given a predicted vector $\hat{\mathbf{v}}$ and ground truth $\mathbf{v}$, performance is evaluated using angular error:
-    \[
+    $$
     \theta = \arccos \left( \hat{\mathbf{v}}^\top \mathbf{v} \right).
-    \]
+    $$
     
     This metric directly measures rotational discrepancy in degrees and respects the geometry of the sphere.
     
@@ -161,7 +161,7 @@ Towards Blind Control with Event-Based Tactile Sensing}
 The broader motivation of this work is tactile-based pole balancing. In particular, we study the perception subproblem of estimating pole orientation from robot state information and tactile sensor events, without visual input during inference. Given sufficiently accurate orientation estimates, standard feedback control methods could in principle be used to stabilize the pole; however, the design and evaluation of such controllers are outside the scope of our current work, and should be addressed in the future.
 
 At each time step, the system has access to: (i) the robot state variables
-(e.g., position and orientation of the sensor support),
+(e.g., position and orientation of the handheld mount),
 and (ii) the sparse event-based tactile measurements provided by the tactile sensor.
 Based on these inputs, the goal is to predict the 3D orientation of the pole.
 
@@ -185,10 +185,13 @@ We opted to collect real human data to train the proposed model in order to capt
 sensor noise, and natural variability, that would not be able to be fully replicated in a simulated environment.
 The human data collection also proved to be better for capturing more extreme pole angles, differently from a robotic setup where the pole would likely fall after reaching such angles.
 
-For that pourpose, we designed a custom support equipped with an \textit{Evtac} tactile sensor, and a set of \textit{OptiTrack} markers.
-This support was used by human operators, to perform the balancing task, while the tactile and motion capture data were recorded simultaneously.
+For that purpose, we designed a custom handheld mount — a rigid handle 
+instrumented with an \textit{EvETac} tactile sensor and a set of 
+\textit{OptiTrack} markers — that human operators used to perform the 
+balancing task while tactile and motion capture data were recorded 
+simultaneously.
 
-Ground-truth measurements of the pole angle together with support angle and position were obtained using an \textit{OptiTrack} motion capture system, which provides accurate 3D pose estimation.
+Ground-truth measurements of the pole angle together with mount's angle and position were obtained using an \textit{OptiTrack} motion capture system, which provides accurate 3D pose estimation.
 The motion capture data was temporally synchronized with the tactile sensor readings to ensure alignment between input signals and target labels.
 
 Aiming to obtain a more varied dataset, we recorded multiple sessions with two different team members.
@@ -209,7 +212,7 @@ All evaluated models were trained and validated using exactly the same data to g
     \begin{subfigure}{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{images/holder.jpeg}
-        \caption{Personalized support equipped with an \textit{Evtac} tactile sensor and \textit{OptiTrack} markers.}
+        \caption{Personalized handheld mount equipped with an \textit{Evtac} tactile sensor and \textit{OptiTrack} markers.}
         \label{fig:img2}
     \end{subfigure}
     
@@ -302,9 +305,7 @@ Processing raw, high-resolution tactile event streams directly imposes significa
 The moments are computed independently for the positive and negative event masks, so that the descriptor captures both the geometry of contact onset and the geometry of contact release separately. This polarity-aware decomposition is important because positive and negative events encode qualitatively different elastomer deformation dynamics: positive events typically correspond to regions of increasing contact pressure, while negative events indicate pressure release or contact withdrawal.
 
 Because raw Hu moments can span several orders of magnitude, a stabilizing logarithmic transformation is applied:
-\[
-h'_i = -\operatorname{sign}(h_i) \cdot \log_{10}(|h_i| + 10^{-7}),
-\]
+$$ h'_i = -\operatorname{sign}(h_i) \cdot \log_{10}(|h_i| + 10^{-7}), $$
 which compresses the dynamic range while preserving the sign of each descriptor. This normalization is essential for stable neural network training, as it prevents large-magnitude moments from dominating the gradient signal.
 
 \subsubsection{Temporal Sliding Window Formulation}
@@ -334,10 +335,10 @@ This section evaluates how different tactile representations and temporal modeli
 
 Before evaluating learning architectures, we conducted two controlled experiments designed to establish lower-bound baselines for the task. These experiments test whether pole orientation can be estimated from support motion alone and whether a constant upright prediction already achieves low error due to the pole being frequently near vertical.
 
-\par \textbf{Support-Only Baseline.}
-In the first experiment, we evaluate whether the orientation of the support alone is sufficient to predict the pole orientation. The tactile input is removed, and a simple multilayer perceptron (MLP) is trained using only the orientation of the support that the human operator holds during the balancing task.
+\par \textbf{Mount-Only Baseline.}
+In the first experiment, we evaluate whether the orientation of the mount alone is sufficient to predict the pole orientation. The tactile input is removed, and a simple multilayer perceptron (MLP) is trained using only the orientation of the handheld mount held by the human operator during the balancing task.
 
-This experiment serves as a baseline to quantify how much information about the pole state can be inferred from the support motion alone. Because the pole can move relative to the support during balancing, the support orientation provides only indirect information about the pole orientation. The results therefore establish that relying solely on this signal leads to significantly larger prediction errors, motivating the use of tactile sensing to capture the contact dynamics between the pole and the sensor.
+This experiment serves as a baseline to quantify how much information about the pole state can be inferred from the mount's motion alone. Because the pole can move relative to the mount during balancing, the support orientation provides only indirect information about the pole orientation. The results therefore establish that relying solely on this signal leads to significantly larger prediction errors, motivating the use of tactile sensing to capture the contact dynamics between the pole and the sensor.
 
 \par \textbf{Vertical-Pole Baseline.}
 In the second experiment, we evaluate a trivial baseline that always predicts the pole to be perfectly vertical. Since the goal of the task is to keep the pole balanced upright, the pole remains close to the vertical direction for much of the dataset. This raises the question of whether a constant prediction might already achieve low error.
@@ -380,9 +381,9 @@ This comparison allows us to analyze how spatial representation and temporal mod
 
 After running the previously specified experiments, the following results were obtained:
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
-\resizebox{\columnwidth}{!}{%
+% \resizebox{\columnwidth}{!}{%
 \begin{tabular}{ccc}
 \hline
 \textbf{Grid Shape} & \textbf{Val Error (°)} & \textbf{Val Loss ($10^{-3}$)} \\ \hline
@@ -398,7 +399,7 @@ After running the previously specified experiments, the following results were o
 
 The results in Table~\ref{tab:mlp_grids} were used to define the statistical representation adopted in the remainder of the study. Since the $2\times2$ grid provided the best trade-off between predictive accuracy and feature compactness, this configuration was used as the default input representation across all subsequent models.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{0.92}
@@ -407,7 +408,7 @@ The results in Table~\ref{tab:mlp_grids} were used to define the statistical rep
 \toprule
 \textbf{Model} & \textbf{Val Error (°)} & \textbf{Val Loss ($10^{-3}$)} \\ \midrule
 Vertical Pole Baseline           & 9.844 $\pm$ 4.277  & 10.645 \\
-MLP Support Only                 & 5.232 $\pm$ 3.297  & 3.953 \\
+MLP Mount Only                 & 5.232 $\pm$ 3.297  & 3.953 \\
 MLP Stats (2x2)                  & 3.441 $\pm$ 3.117  & 0.951 \\
 MLP Sliding Window + Stats (2x2) & 3.126 $\pm$ 3.0458 & 0.553 \\
 \textbf{TCN+Stats (2x2)}         & \textbf{2.229 $\pm$ 2.921}  & \textbf{0.016} \\
@@ -422,9 +423,9 @@ CNN+TCN                          & 3.613 $\pm$ 3.464  & 0.350
 \renewcommand{\arraystretch}{1}
 
 
-To la further assess the generalization capability of the best-performing model, an additional round of testing was conducted using two completely new and isolated datasets, one collected by each team member. These datasets were kept separate from the data used during training and validation, providing a more realistic measure of how well the model transfers to unseen trials recorded under slightly different conditions. This extra evaluation helps reduce the risk of overestimating performance due to dataset-specific patterns and offers a more generalized assessment of the proposed approach.
+To further assess the generalization capability of the best-performing model, an additional round of testing was conducted using two completely new and isolated datasets, one collected by each team member. These datasets were kept separate from the data used during training and validation, providing a more realistic measure of how well the model transfers to unseen trials recorded under slightly different conditions. This extra evaluation helps reduce the risk of overestimating performance due to dataset-specific patterns and offers a more generalized assessment of the proposed approach.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     
     \begin{subfigure}{1\linewidth}
@@ -474,7 +475,7 @@ information. The best evaluated model was able to estimate the pole
 orientation with an average error of approximately 2.23°, and standard deviation of 2.921° (which is high compared to the average error).
 This performance significantly outperforms simple baseline
 strategies, such as assuming the pole remains vertical at all
-times or relying solely on the orientation of the sensor support
+times or relying solely on the orientation of the sensor mount
 as a proxy for the pole angle.
 
 Although the obtained results demonstrate that tactile-based
