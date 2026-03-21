@@ -62,7 +62,7 @@ Towards Blind Control with Event-Based Tactile Sensing}
 \printAffiliationsAndNotice{\icmlEqualContribution} 
 
 \begin{abstract}
-    Precise estimation of object orientation from tactile feedback is critical for robotic manipulation, particularly in scenarios where visual sensing is unreliable or unavailable. We study 3D pole orientation estimation from high-resolution tactile time-series data, motivated by tactile-based pole balancing, and formulate the problem as regression on the unit sphere $S^2$. Direct learning from raw tactile pressure maps is challenged by high dimensionality and spatial redundancy, which we address through a Statistical Multi-Quad encoding that aggregates activations into structured spatial-statistical features at multiple resolutions. Ground-truth orientation vectors are computed from optical marker data via Singular Value Decomposition (SVD), and evaluation employs strict temporal splits across recording sessions to prevent interpolation-induced leakage. We compare memoryless, short-term temporal, and long-horizon sequence models. Our results show that the \textbf{statistical based TCN} model achieves the mean angular error of approximately \textbf{2.23°} on validation data, highlighting the importance of structured tactile representations combined with temporal modeling for accurate and stable orientation regression.
+    Precise estimation of object orientation from tactile feedback is critical for robotic manipulation, particularly in scenarios where visual sensing is unreliable or unavailable. We study 3D pole orientation estimation from high-resolution tactile time-series data, motivated by tactile-based pole balancing, and formulate the problem as regression on the unit sphere $S^2$. Direct learning from raw tactile pressure maps is challenged by high dimensionality and spatial redundancy, which we address through a Statistical Multi-Quad encoding that aggregates activations into structured spatial-statistical features at multiple resolutions. Ground-truth orientation vectors are computed from optical marker data via Singular Value Decomposition (SVD), and evaluation employs strict temporal splits across recording sessions to prevent interpolation-induced leakage. We compare memoryless, short-term temporal, and long-horizon sequence models. Our results show that the \textbf{statistical based Temporal Convolutional Network (TCN)} model achieves the mean angular error of approximately \textbf{2.23°} on validation data, highlighting the importance of structured tactile representations combined with temporal modeling for accurate and stable orientation regression.
     \end{abstract}
 
     \section{Introduction}
@@ -73,6 +73,8 @@ Towards Blind Control with Event-Based Tactile Sensing}
     Despite recent advances in high-resolution tactile sensors, learning directly from raw tactile pressure maps presents significant challenges. The dimensionality of modern tactile arrays is high, spatial activations are redundant, and contact patterns evolve over time in structured but non-trivial ways. Naively applying deep models to flattened tactile matrices risks overparameterization, inefficient learning, and poor generalization. Moreover, improper train-test splitting in time-series tactile data can introduce interpolation-induced leakage, leading to overestimated performance.
     
     Previous work in tactile sensing has mostly focused on classification tasks such as slip detection, using either end-to-end convolutional models or handcrafted features. Few studies have systematically explored the combination of spatially structured aggregation with both non-temporal and temporal modeling for accurate 3D orientation regression. Because orientation lies on the unit sphere, both feature representations and evaluation metrics must respect the geometric structure of rotations. Our work addresses this gap by evaluating memoryless feature-based models, short-horizon temporal models, and long-horizon sequence models under a unified statistical encoding framework.
+
+    It is important to distinguish the problem addressed in this paper from the full pole-balancing task. Our goal is not to learn an end-to-end balancing policy, but to estimate pole orientation from tactile observations alone. We therefore treat orientation prediction as the perception component that would support a downstream controller, allowing us to evaluate representation quality and temporal modeling without conflating perception with control.
     
     This raises a natural question:
     
@@ -85,7 +87,10 @@ Towards Blind Control with Event-Based Tactile Sensing}
     \begin{enumerate}
         \item We formalize tactile-based pole orientation estimation as a regression problem on the unit sphere, enabling geometrically consistent evaluation through angular error metrics.
         
-        \item We introduce a Statistical Multi-Quad encoding that aggregates tactile activations into spatial-statistical features at multiple resolutions, providing an efficient representation of high-dimensional tactile signals.
+
+        \item We introduce a \textbf{Statistical Multi-Quad encoding} that converts sparse event-based tactile maps into compact, fixed-size feature vectors. The sensor surface is partitioned into a spatial grid of quadrants, and for each region we compute polarity-separated statistics — including centroids, spatial variance, event counts, and seven Hu moment descriptors — independently for positive and negative events. This structured aggregation reduces input dimensionality while preserving the geometric and dynamic properties of the contact footprint, and serves as the shared input representation across all evaluated architectures.
+        
+        % \item We introduce a Statistical Multi-Quad encoding that aggregates tactile activations into spatial-statistical features at multiple resolutions, providing an efficient representation of high-dimensional tactile signals.
         
         \item We perform a systematic comparison of memoryless and temporal neural architectures for tactile orientation regression under temporally disjoint evaluation protocols.
     \end{enumerate}
@@ -93,7 +98,7 @@ Towards Blind Control with Event-Based Tactile Sensing}
 
     \section{Background}
 
-    \subsection{Event-Based Optical Tactile Sensing}
+    \subsection{Event-Based Optical Tactile Sensing (EvETac)}
     
     Optical tactile sensors measure contact by observing the deformation of a compliant elastomer through an internal camera~\cite{Evetac}. In contrast to RGB-based designs, event-based optical tactile sensors use neuromorphic cameras that asynchronously report pixel-level intensity changes. The EvETac sensor replaces a standard frame-based camera with an event-based camera, enabling high temporal resolution while maintaining fine spatial detail. Marker tracking algorithms reconstruct elastomer deformation from sparse event streams at rates up to 1000 Hz.
     
@@ -117,7 +122,22 @@ Towards Blind Control with Event-Based Tactile Sensing}
     \]
     
     This metric directly measures rotational discrepancy in degrees and respects the geometry of the sphere.
+    
+    \subsection{Hu Moments for Shape Description}
 
+    Hu moments are a set of seven scalar descriptors derived from the central moments of a 2D distribution~\cite{humom}. They provide a compact characterization of shape geometry and are invariant to translation, scale, and rotation, making them robust to changes in the position or size of a contact patch on the sensor surface.
+
+    Given a binary image $I(x,y)$, the raw moment of order $(p+q)$ is defined as:
+    \[
+    m_{pq} = \sum_{x}\sum_{y} x^p \, y^q \, I(x,y),
+    \]
+    and the corresponding central moment, normalized for translation invariance, is:
+    \[
+    \mu_{pq} = \sum_{x}\sum_{y} (x - \bar{x})^p (y - \bar{y})^q I(x,y),
+    \]
+    where $(\bar{x}, \bar{y})$ is the centroid of the distribution. Scale-normalized central moments $\eta_{pq}$ are obtained by dividing by an appropriate power of $m_{00}$. The seven Hu moments $\{h_1, \dots, h_7\}$ are then nonlinear combinations of $\eta_{pq}$ up to third order, designed to be invariant under similarity transformations.
+
+    In the context of event-based tactile sensing, Hu moments are applied within each spatial quadrant, providing a rotation- and scale-invariant summary of the local contact geometry.
     \section{Related Work}
 
     \subsection{Event-Based Tactile Sensing}
@@ -138,9 +158,7 @@ Towards Blind Control with Event-Based Tactile Sensing}
     
 \section{Methodology}
 \subsection{Problem Formulation}
-The ultimate objective of this work is to balance a pole using exclusively tactile sensing.
-More specifically, we aim to estimate the pole orientation relying only on the robot state
-information and the tactile sensor events, without using visual input during inference.
+The broader motivation of this work is tactile-based pole balancing. In particular, we study the perception subproblem of estimating pole orientation from robot state information and tactile sensor events, without visual input during inference. Given sufficiently accurate orientation estimates, standard feedback control methods could in principle be used to stabilize the pole; however, the design and evaluation of such controllers are outside the scope of our current work, and should be addressed in the future.
 
 At each time step, the system has access to: (i) the robot state variables
 (e.g., position and orientation of the sensor support),
@@ -199,6 +217,13 @@ All evaluated models were trained and validated using exactly the same data to g
     \label{fig:comparison}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{images/evtac_max_active_part_1_of_4_downscale_1x.png}
+    \caption{Visual example of the EvETac sensor data. Positive events on orange and negative events on blue.}
+    \label{fig:evtac-part1}
+\end{figure}
+
 \subsection{Metrics}
 \subsubsection{Loss Function}
 
@@ -224,16 +249,12 @@ structure of the orientation estimation task.
 The predicted vectors are normalized before computing the loss to
 ensure that both predictions and targets lie on the unit sphere.
 
-\subsection{Arquitectures and Approaches}
+\subsection{Architectures and Approaches}
 \subsubsection{Multi Layer Perception Network (MLP)}
 We employ a Multilayer Perceptron (MLP) as an initial baseline to map spatial tactile features directly to the pole's 3D orientation vector. This instantaneous mapping provides a rapid evaluation of the sensor's representational power prior to modeling complex temporal dynamics.
 
 The architecture utilizes a progressive bottleneck with five hidden layers (128, 256, 128, 64, and 32 neurons). To ensure stable gradients and mitigate overfitting on sparse data, each linear transformation is followed by 1D Batch Normalization, ReLU activation, and a Dropout layer (rate of 0.1).
 
-% Multilayer Perceptrons  are foundational feedforward neural networks consisting of fully connected layers, effective at approximating complex, non-linear mappings. In this study, an MLP was employed as an initial baseline model due to its architectural simplicity and exceptionally fast training and inference speeds. By treating the pole balancing task initially as an instantaneous mapping---from spatial tactile features directly to the pole's orientation vector---the MLP provided a rapid evaluation of the sensor's base representational power before introducing more complex temporal dynamics.
-%
-% The implemented architecture, \textit{TactileMLPVector}, utilizes a progressive bottleneck structure to compress the input features into a 3D directional vector. The network consists of five hidden layers with 128, 256, 128, 64, and 32 neurons, respectively. To ensure stable gradient propagation and mitigate overfitting on the sparse tactile data, each linear transformation is followed by 1D Batch Normalization, a Rectified Linear Unit (ReLU) activation function, and a Dropout layer with a rate of 0.1.
-% Multilayer Perceptrons (MLPs) are foundational feedforward artificial neural networks widely used for structured data processing and regression tasks. Unlike specialized architectures such as convolutional or recurrent networks, MLPs consist entirely of fully connected layers, where each neuron in a given layer connects to all neurons in the subsequent layer. Through the use of non-linear activation functions, MLPs are capable of approximating complex, high-dimensional mappings. Due to their architectural simplicity, deterministic execution, and highly optimized matrix multiplication operations, MLPs provide exceptionally fast training and inference times, making them an ideal choice for rapid prototyping and establishing strong empirical baselines.
 \subsubsection{Convolutional Neural Network (CNN)}
 Convolutional Neural Networks (CNNs) are specialized deep learning architectures designed to process grid-like data using localized filters~\cite{cnn}. For tactile-based pole balancing, CNNs offer an intuitive approach by directly operating on the accumulated 2D pixel matrix of the EveTac sensor. By applying sliding learnable kernels across multiple channels, the network can extract a rich hierarchy of spatial features—ranging from basic edges to complex contact geometries. This enables the model to natively learn the spatial morphology and intensity distributions of the pole's footprint, bypassing the need for hand-crafted statistical feature extraction.
 
@@ -276,7 +297,15 @@ Processing raw, high-resolution tactile event streams directly imposes significa
 
 \par Within each quadrant, the accumulated event stream is strictly segregated by polarity into positive events (typically indicating an increase in pressure) and negative events (indicating a decrease or release). For each processed frame, the algorithm extracts a set of foundational spatial statistics per quadrant: the mean spatial coordinates $(x, y)$, the spatial variance of the active pixels, and the absolute count of positive and negative events.
 
-\par To further encode the geometric structure and distribution of the contact patches, the algorithm computes the seven Hu moments for the events within each quadrant. Hu moments are a well-established set of statistical descriptors invariant to image translation, scale, and rotation~\cite{humom}. They are calculated independently for both the positive and negative event masks to distinctly capture the dynamics of contact onset and release. To ensure numerical stability, a logarithmic transformation is applied to the raw moments via $-\text{sign}(h) \cdot \log_{10}(|h| + 10^{-7})$. This combination of basic spatial statistics and invariant shape descriptors provides a dense, information-rich vector that efficiently summarizes the tactile state at any given instantaneous timestep.
+\par To further encode the geometric structure and distribution of the contact patches, the algorithm computes the seven Hu moments for the positive and negative event distributions within each quadrant. As introduced in Section~2.4, Hu moments capture rotation-, scale-, and translation-invariant shape characteristics of a 2D distribution. In the tactile setting, they characterize properties such as the elongation, asymmetry, and higher-order spread of the contact footprint within each spatial region.
+
+The moments are computed independently for the positive and negative event masks, so that the descriptor captures both the geometry of contact onset and the geometry of contact release separately. This polarity-aware decomposition is important because positive and negative events encode qualitatively different elastomer deformation dynamics: positive events typically correspond to regions of increasing contact pressure, while negative events indicate pressure release or contact withdrawal.
+
+Because raw Hu moments can span several orders of magnitude, a stabilizing logarithmic transformation is applied:
+\[
+h'_i = -\operatorname{sign}(h_i) \cdot \log_{10}(|h_i| + 10^{-7}),
+\]
+which compresses the dynamic range while preserving the sign of each descriptor. This normalization is essential for stable neural network training, as it prevents large-magnitude moments from dominating the gradient signal.
 
 \subsubsection{Temporal Sliding Window Formulation}
 
@@ -285,17 +314,17 @@ While instantaneous spatial features are sufficient for memoryless baselines, po
 \par Let $X_t$ represent the extracted tactile features (e.g., the statistical vector) and base kinematic inputs at a discrete timestep $t$. A sliding window of size $T$ aggregates these past and current observations into a continuous sequence $S_t = \{X_{t-T+1}, \dots, X_{t-1}, X_t\}$. The sequential models are then trained to map this input history $S_t$ to the target pole orientation at the final timestep $t$. 
 
 \par A stride parameter controls the step size of the sliding window across the dataset, determining the overlap between consecutive sequences. This formulation ensures that temporal architectures, such as the TCN, receive a consistent historical context. By framing the input this way, the models are forced to implicitly learn the velocity and acceleration trends of the pole's contact footprint across the sensor surface over time.
-
-
-% \subsubsection{Statistical Feature Extraction Approach}
-%
-% Processing raw, high-resolution tactile event streams directly imposes significant computational overhead. However, recent research on event-based tactile skins demonstrates that such data is highly compressible \cite{koolani2026event}. For instance, using stochastic down-sampling, an event stream could be reduced to $1/1024$ of its original size while maintaining valid press localizations for 85\% of the trials . These results show that the sensing approach remains functional even with very sparse event data, which is promising for reducing computational load. Motivated by this inherent sparsity, we developed a spatial statistical feature extraction strategy to provide a fixed-size, lower-dimensional input representation for our models without losing essential mechanical information.
-%
-% \par Rather than processing the full asynchronous event stream, our approach aggregates tactile data over discretized spatial regions to capture the macroscopic dynamics of the pole's contact footprint. The sensor's spatial domain is subdivided into a grid of independent, uniformly sized quadrants. The dimensions of these quadrants act as a crucial hyperparameter that balances spatial granularity against computational performance. Smaller quadrants provide high-resolution localization of tactile stimuli but exponentially increase the dimensionality of the feature vector, potentially leading to sparse or empty regions. Conversely, larger quadrants yield a more compact and computationally efficient representation, though at the cost of fine-grained spatial details.
-% \par Within each quadrant, the event stream is strictly segregated by polarity into positive events (typically indicating an increase in pressure or contact area) and negative events (indicating a decrease or release). For a given temporal window, the algorithm extracts a set of foundational spatial statistics per quadrant, including the mean spatial coordinates $(x, y)$, the spatial variance of the active pixels, and the absolute count of positive and negative events.
-%
-% \par To further encode the geometric structure and distribution of the contact patches, the algorithm computes the seven Hu moments for the events within each quadrant. Hu moments are a well-established set of statistical image descriptors that quantify the shape characteristics of a distribution. They are particularly valuable because they are invariant to image translation, scale, and rotation, allowing the model to recognize consistent contact patterns regardless of their precise location within the quadrant.The Hu moments are calculated independently for both the positive and negative event masks to distinctly capture the dynamics of contact onset and release. Because raw Hu moments can span several orders of magnitude, a logarithmic transformation is applied to the results $(-\text{sign}(h) \cdot \log_{10}(|h| + 10^{-7}))$ to ensure numerical stability and facilitate neural network training. This combination of basic spatial statistics and invariant shape descriptors provides a dense, information-rich vector that efficiently summarizes the tactile state at any given timestep.
-%
+ 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/quads.png}
+    \caption{Statistical Multi-Quad (SMQ) encoding pipeline. The sparse 
+    event map is split by polarity, partitioned into a $G \times G$ grid, 
+    and per-quadrant spatial statistics and Hu moments are extracted 
+    independently for positive and negative events, then concatenated 
+    into a fixed-size feature vector $\mathbf{f} \in \mathbb{R}^{D}$.}
+    \label{fig:smq}
+\end{figure}
 
 \section{Experiments}
 
@@ -305,23 +334,21 @@ This section evaluates how different tactile representations and temporal modeli
 
 Before evaluating learning architectures, we conducted two controlled experiments designed to establish lower-bound baselines for the task. These experiments test whether pole orientation can be estimated from support motion alone and whether a constant upright prediction already achieves low error due to the pole being frequently near vertical.
 
-\paragraph{Support-Only Baseline.}
+\par \textbf{Support-Only Baseline.}
 In the first experiment, we evaluate whether the orientation of the support alone is sufficient to predict the pole orientation. The tactile input is removed, and a simple multilayer perceptron (MLP) is trained using only the orientation of the support that the human operator holds during the balancing task.
 
 This experiment serves as a baseline to quantify how much information about the pole state can be inferred from the support motion alone. Because the pole can move relative to the support during balancing, the support orientation provides only indirect information about the pole orientation. The results therefore establish that relying solely on this signal leads to significantly larger prediction errors, motivating the use of tactile sensing to capture the contact dynamics between the pole and the sensor.
 
-\paragraph{Vertical-Pole Baseline.}
+\par \textbf{Vertical-Pole Baseline.}
 In the second experiment, we evaluate a trivial baseline that always predicts the pole to be perfectly vertical. Since the goal of the task is to keep the pole balanced upright, the pole remains close to the vertical direction for much of the dataset. This raises the question of whether a constant prediction might already achieve low error.
 
 To assess this, we compute the orientation error obtained when the predicted pole angles are fixed at $0^\circ$ for all samples. This baseline measures the error incurred by ignoring the dynamics of the pole entirely and assuming it remains perfectly upright. Comparing our learned models to this baseline allows us to verify that the proposed approach captures meaningful variations in pole orientation and achieves substantially lower error than this trivial assumption.
 
 Together, these experiments establish reference baselines for the task and demonstrate that neither support motion nor a constant upright assumption is sufficient to accurately estimate the pole orientation. This motivates the use of tactile sensing together with learned representations for reliable pole state estimation.
 
-\subsection{Statistical Representation of Event-Based Tactile Data}
+\subsection{Grid Shape Tuning of the Statistical Representation of EveTac Data}
 
 The raw tactile input consists of event streams where each event has a polarity of $-1$, $0$, or $1$, with the majority of pixels being inactive ($0$). To reduce redundancy and exploit the sparse nature of the signal, we convert the event map into a structured statistical representation.
-
-The tactile surface is partitioned into a grid of spatial quadrants, and statistics are computed for positive and negative events within each region. These statistics include the centroid, standard deviation, and event count. Some features combine both polarities, while others are computed separately for positive and negative events. This representation summarizes the spatial distribution of tactile activity while preserving polarity information.
 
 To determine the appropriate spatial resolution for feature extraction, we evaluate multiple grid configurations: $1\times1$, $2\times2$, $4\times4$, and $8\times8$. This experiment analyzes how feature granularity—the level of spatial discretization—affects both prediction accuracy and computational complexity. Finer grids provide higher spatial resolution but lead to a significant increase in the dimensionality of the input feature vector. Based on these empirical results, a {$2\times2$ grid} is selected for all subsequent experiments, as it provides an optimal balance between spatial acuity and model robustness.
 
@@ -329,13 +356,13 @@ To determine the appropriate spatial resolution for feature extraction, we evalu
 
 To understand the role of temporal information in tactile state estimation, we evaluate models with different levels of temporal context.
 
-\paragraph{Memoryless Models.}
+\par \t{Memoryless Models.}
 Memoryless models operate on individual tactile frames without explicitly modeling temporal dependencies. These models evaluate whether instantaneous tactile geometry is sufficient for predicting pole orientation.
 
-\paragraph{Short-Context Models.}
+\par \t{Short-Context Models.}
 Short-context models incorporate limited temporal information through sliding window representations. We evaluate windows of size $3$, allowing the model to observe recent tactile activity while maintaining low latency.
 
-\paragraph{Long-Context Models.}
+\par \t{Long-Context Models.}
 Long-context temporal models based on Temporal Convolutional Networks (TCNs) are used to capture extended temporal dependencies in the tactile event stream. Dilated convolutions allow the receptive field to grow exponentially, enabling the model to integrate information over longer time horizons.
 
 \subsection{Model Architectures}
@@ -369,6 +396,8 @@ After running the previously specified experiments, the following results were o
 \label{tab:mlp_grids}
 \end{table}
 
+The results in Table~\ref{tab:mlp_grids} were used to define the statistical representation adopted in the remainder of the study. Since the $2\times2$ grid provided the best trade-off between predictive accuracy and feature compactness, this configuration was used as the default input representation across all subsequent models.
+
 \begin{table}[H]
 \centering
 \setlength{\tabcolsep}{4pt}
@@ -381,7 +410,7 @@ Vertical Pole Baseline           & 9.844 $\pm$ 4.277  & 10.645 \\
 MLP Support Only                 & 5.232 $\pm$ 3.297  & 3.953 \\
 MLP Stats (2x2)                  & 3.441 $\pm$ 3.117  & 0.951 \\
 MLP Sliding Window + Stats (2x2) & 3.126 $\pm$ 3.0458 & 0.553 \\
-TCN+Stats (2x2)                  & 2.229 $\pm$ 2.921  & 0.016 \\
+\textbf{TCN+Stats (2x2)}         & \textbf{2.229 $\pm$ 2.921}  & \textbf{0.016} \\
 CNN+TCN                          & 3.613 $\pm$ 3.464  & 0.350 
 
 \end{tabular}%
@@ -392,9 +421,8 @@ CNN+TCN                          & 3.613 $\pm$ 3.464  & 0.350
 \setlength{\tabcolsep}{6pt}
 \renewcommand{\arraystretch}{1}
 
-% The results presented in the tables indicate that all learned models substantially outperform the vertical-pole baseline, showing that the pole orientation cannot be accurately estimated from a naive static assumption alone. In addition, the comparison across architectures shows a clear benefit of incorporating tactile sensing into the input representation, as models using tactile features consistently achieve lower validation errors than approaches based only on the support state. Among all evaluated methods, the TCN+Stats (2x2) model achieved the best overall performance, suggesting that the combination of structured tactile feature extraction and temporal modeling is the most effective strategy for this estimation task.
 
-To further assess the generalization capability of the best-performing model, an additional round of testing was conducted using two completely new and isolated datasets, one collected by each team member. These datasets were kept separate from the data used during training and validation, providing a more realistic measure of how well the model transfers to unseen trials recorded under slightly different conditions. This extra evaluation helps reduce the risk of overestimating performance due to dataset-specific patterns and offers a more generalized assessment of the proposed approach.
+To la further assess the generalization capability of the best-performing model, an additional round of testing was conducted using two completely new and isolated datasets, one collected by each team member. These datasets were kept separate from the data used during training and validation, providing a more realistic measure of how well the model transfers to unseen trials recorded under slightly different conditions. This extra evaluation helps reduce the risk of overestimating performance due to dataset-specific patterns and offers a more generalized assessment of the proposed approach.
 
 \begin{figure}[H]
     \centering
@@ -419,6 +447,8 @@ To further assess the generalization capability of the best-performing model, an
     \label{fig:new_test_datasets}
 \end{figure}
 
+Beyond providing a more tangible view of the model's behavior on the separated test run, these plots also reveal a pronounced difference between the two test cases.
+
 It is important to note that the training dataset was composed
 predominantly of runs collected by the first team member,
 which may have biased the model toward patterns that were more
@@ -441,7 +471,7 @@ strongly represented during training.
 In this work, we investigated the feasibility of estimating the
 orientation of a pole using only tactile sensing and robot state
 information. The best evaluated model was able to estimate the pole
-orientation with an average error of approximately 2.23°.
+orientation with an average error of approximately 2.23°, and standard deviation of 2.921° (which is high compared to the average error).
 This performance significantly outperforms simple baseline
 strategies, such as assuming the pole remains vertical at all
 times or relying solely on the orientation of the sensor support
@@ -449,7 +479,7 @@ as a proxy for the pole angle.
 
 Although the obtained results demonstrate that tactile-based
 estimation is feasible, it is still unclear whether the achieved
-prediction accuracy is sufficient for reliable closed-loop
+prediction accuracy and deviation is sufficient for reliable closed-loop
 control. In the context of pole balancing, the effectiveness
 of the estimator depends not only on the average prediction
 error but also on the stability of the estimates and their
